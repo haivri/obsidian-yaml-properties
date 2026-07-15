@@ -1,0 +1,407 @@
+/*
+ * Public appearance API
+ *
+ * Themes and snippets can override any --yaml-properties-* variable below.
+ * The declarations intentionally have low specificity so a user snippet loaded
+ * after the plugin wins without !important.
+ */
+body {
+  --yaml-properties-key: color-mix(in srgb, var(--text-muted) 72%, var(--background-primary));
+  --yaml-properties-string: #f4dc92;
+  --yaml-properties-number: #f1bf8a;
+  --yaml-properties-boolean: #ff6b6b;
+  --yaml-properties-null: #ffb7db;
+  --yaml-properties-anchor: #d8c7ff;
+  --yaml-properties-link: #c8e7ff;
+  --yaml-properties-date: #ffd39a;
+  --yaml-properties-tag: #f3a8ff;
+  --yaml-properties-comment: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  --yaml-properties-punctuation: color-mix(in srgb, var(--text-faint) 84%, transparent);
+  --yaml-properties-background: color-mix(in srgb, var(--background-secondary) 74%, transparent);
+  --yaml-properties-background-active: color-mix(in srgb, var(--color-accent) 6%, var(--yaml-properties-background));
+  --yaml-properties-rail: color-mix(in srgb, var(--yaml-properties-key) 28%, transparent);
+  --yaml-properties-rail-active: color-mix(in srgb, var(--yaml-properties-key) 58%, transparent);
+  --yaml-properties-selection: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  --yaml-properties-indent: color-mix(in srgb, var(--text-faint) 44%, transparent);
+  --yaml-properties-list-stripe: color-mix(in srgb, var(--yaml-properties-key) 10%, transparent);
+}
+
+body.theme-light {
+  --yaml-properties-key: color-mix(in srgb, var(--text-muted) 78%, white);
+  --yaml-properties-string: #8b6a12;
+  --yaml-properties-number: #b56d22;
+  --yaml-properties-boolean: #cf3838;
+  --yaml-properties-null: #c0568e;
+  --yaml-properties-anchor: #8a6bd8;
+  --yaml-properties-link: #3e72a8;
+  --yaml-properties-date: #bf7a1e;
+  --yaml-properties-tag: #a95cc7;
+  --yaml-properties-background: color-mix(in srgb, var(--background-secondary) 92%, white);
+  --yaml-properties-rail: color-mix(in srgb, var(--yaml-properties-key) 20%, transparent);
+  --yaml-properties-rail-active: color-mix(in srgb, var(--yaml-properties-key) 42%, transparent);
+}
+
+.markdown-source-view.mod-cm6.yaml-properties-managed .yaml-properties-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  margin: 0.2rem 0 0.35rem;
+  padding: 0.52rem 0.78rem;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 88%, transparent);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--background-secondary) 82%, transparent);
+  color: var(--text-normal);
+  cursor: pointer;
+  user-select: none;
+}
+
+.markdown-source-view.mod-cm6.yaml-properties-managed .yaml-properties-toggle:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 28%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--background-secondary) 76%, var(--color-accent) 5%);
+}
+
+.markdown-source-view.mod-cm6.yaml-properties-managed .yaml-properties-title {
+  font-size: 0.9em;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.markdown-source-view.mod-cm6.yaml-properties-managed .yaml-properties-summary {
+  color: var(--text-muted);
+  font-size: 0.78em;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.markdown-source-view.mod-cm6.yaml-properties-managed .frontmatter-hidden-line {
+  display: none;
+}
+
+.metadata-container.yaml-properties-managed {
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 88%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--background-secondary) 84%, transparent);
+  padding: 0.2rem 0.3rem;
+}
+
+.metadata-container.yaml-properties-managed.is-collapsed {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.metadata-container.yaml-properties-managed .metadata-properties-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.55rem;
+}
+
+.metadata-container.yaml-properties-managed .metadata-properties-heading .collapse-indicator {
+  display: none;
+}
+
+.metadata-container.yaml-properties-managed .metadata-properties-heading:hover {
+  background: color-mix(in srgb, var(--background-secondary) 70%, var(--color-accent) 6%);
+}
+
+.metadata-container.yaml-properties-managed.is-collapsed .metadata-properties-heading {
+  padding: 0.12rem 0.28rem;
+  opacity: 0.48;
+  border-radius: 0;
+}
+
+.metadata-container.yaml-properties-managed.is-collapsed .metadata-properties-heading:hover {
+  opacity: 0.68;
+  background: color-mix(in srgb, var(--background-secondary) 14%, var(--color-accent) 2%);
+}
+
+.metadata-container.yaml-properties-managed .metadata-properties-title {
+  font-family: var(--font-text);
+  font-weight: 560;
+  letter-spacing: 0.01em;
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-inline-summary {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.72em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 65%;
+  opacity: 0.82;
+}
+
+.metadata-container.yaml-properties-managed.is-collapsed .yaml-properties-inline-summary {
+  opacity: 0.62;
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-yaml {
+  margin: 0.1rem 0.2rem 0.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 82%, transparent);
+  padding-top: 0.45rem;
+}
+
+.metadata-container.yaml-properties-managed.is-collapsed .yaml-properties-yaml {
+  display: none;
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-yaml-readonly,
+.metadata-container.yaml-properties-managed .yaml-properties-yaml-preview {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 84%, transparent);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--background-primary) 72%, var(--background-secondary));
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 0.88em;
+  line-height: 1.65;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: hidden;
+  box-sizing: border-box;
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-yaml-readonly {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-yaml-editor-shell {
+  position: relative;
+  border-radius: 0.7rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-yaml-preview {
+  pointer-events: none;
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-yaml-editor-shell:focus-within {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 24%, transparent);
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-yaml-editor {
+  position: absolute;
+  inset: 0;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 0.7rem;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 0.88em;
+  line-height: 1.65;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: hidden;
+  resize: none;
+  box-sizing: border-box;
+  -webkit-text-fill-color: transparent;
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-yaml-editor:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.metadata-container.yaml-properties-managed .yaml-properties-yaml-editor::selection {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.metadata-container.yaml-properties-managed .yaml-key {
+  color: var(--yaml-properties-key);
+}
+
+.metadata-container.yaml-properties-managed .yaml-string {
+  color: var(--yaml-properties-string);
+  font-weight: 640;
+}
+
+.metadata-container.yaml-properties-managed .yaml-number {
+  color: var(--yaml-properties-number);
+  font-weight: 700;
+}
+
+.metadata-container.yaml-properties-managed .yaml-boolean {
+  color: var(--yaml-properties-boolean);
+  font-weight: 800;
+}
+
+.metadata-container.yaml-properties-managed .yaml-null {
+  color: var(--yaml-properties-null);
+  font-style: italic;
+  font-weight: 690;
+}
+
+.metadata-container.yaml-properties-managed .yaml-tag {
+  color: var(--yaml-properties-tag);
+  font-weight: 700;
+}
+
+.metadata-container.yaml-properties-managed .yaml-link {
+  color: var(--yaml-properties-link);
+  text-decoration: underline;
+}
+
+.metadata-container.yaml-properties-managed .yaml-comment {
+  color: var(--yaml-properties-comment);
+  font-style: italic;
+}
+
+.metadata-container.yaml-properties-managed .yaml-punctuation {
+  color: var(--yaml-properties-punctuation);
+}
+
+.metadata-container.yaml-properties-managed .metadata-content {
+  display: none !important;
+}
+
+.markdown-reading-view .metadata-container.yaml-properties-managed.frontmatter-hide-in-reading {
+  display: none !important;
+}
+
+.markdown-source-view.show-properties .metadata-container .metadata-content {
+  display: none;
+}
+
+/* Bundled source-mode highlighting; controlled by the plugin setting. */
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:has(.cm-hmd-frontmatter) {
+  background: var(--yaml-properties-background);
+  border-left: 3px solid var(--yaml-properties-rail);
+  padding-inline: 0.85rem 0.7rem;
+  font-family: var(--font-monospace);
+  font-size: 0.92em;
+  line-height: 1.68;
+  font-variant-ligatures: none;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 7%, transparent);
+  transition: background-color 100ms ease, border-color 100ms ease;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line.cm-active:has(.cm-hmd-frontmatter) {
+  background: linear-gradient(90deg, var(--yaml-properties-list-stripe) 0, transparent 2.5rem), var(--yaml-properties-background-active);
+  border-left-color: var(--yaml-properties-rail-active);
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-hmd-frontmatter {
+  font-family: var(--font-monospace);
+  font-variant-ligatures: none;
+}
+
+/* Keys recede so values carry the visual weight. */
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line > .cm-atom.cm-hmd-frontmatter:first-child,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line > .cm-hmd-frontmatter:first-child:not(.cm-meta):not(.cm-formatting),
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line > .cm-indent + .cm-atom.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line > .cm-string.cm-hmd-frontmatter:first-child,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line > .cm-string-2.cm-hmd-frontmatter:first-child {
+  color: var(--yaml-properties-key);
+  font-weight: 520;
+  opacity: 0.78;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-string.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-string-2.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line > .cm-hmd-frontmatter:not(:first-child):not(.cm-meta):not(.cm-formatting):not(.cm-number):not(.cm-atom):not(.cm-comment):not(.cm-bool):not(.cm-keyword):not(.cm-null):not(.cm-constant):not(.cm-tag):not(.cm-type):not(.cm-url):not(.cm-link):not(.cm-hmd-internal-link):not(.cm-hashtag) {
+  color: var(--yaml-properties-string);
+  font-weight: 640;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-number.cm-hmd-frontmatter {
+  color: var(--yaml-properties-number) !important;
+  font-weight: 700;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-bool.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-keyword.cm-hmd-frontmatter {
+  color: var(--yaml-properties-boolean);
+  font-weight: 800;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-null.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-constant.cm-hmd-frontmatter {
+  color: var(--yaml-properties-null);
+  font-style: italic;
+  font-weight: 690;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-type.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-tag.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-hashtag.cm-hmd-frontmatter {
+  color: var(--yaml-properties-tag);
+  font-weight: 700;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-variableName.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-variable-2.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-variable-3.cm-hmd-frontmatter {
+  color: var(--yaml-properties-anchor);
+  font-weight: 650;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-url.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-link.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-hmd-internal-link.cm-hmd-frontmatter {
+  color: var(--yaml-properties-link);
+  font-weight: 650;
+  text-decoration: underline 1px color-mix(in srgb, var(--yaml-properties-link) 40%, transparent);
+  text-underline-offset: 0.16em;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-meta.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-formatting.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-punctuation.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-bracket.cm-hmd-frontmatter {
+  color: var(--yaml-properties-punctuation);
+  font-weight: 500;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-comment.cm-hmd-frontmatter {
+  color: var(--yaml-properties-comment);
+  font-style: italic;
+  opacity: 0.84;
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:has(.cm-hmd-frontmatter) .cm-indent {
+  border-left: 1px solid var(--yaml-properties-indent);
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:has(.cm-formatting-list.cm-hmd-frontmatter) {
+  box-shadow: inset 6px 0 0 var(--yaml-properties-list-stripe);
+}
+
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-invalid.cm-hmd-frontmatter,
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-error.cm-hmd-frontmatter {
+  color: var(--text-error);
+  text-decoration: underline wavy var(--text-error);
+  text-underline-offset: 0.2em;
+}
+
+.yaml-properties-compact .metadata-container.yaml-properties-managed .yaml-properties-yaml-readonly,
+.yaml-properties-compact .metadata-container.yaml-properties-managed .yaml-properties-yaml-preview,
+.yaml-properties-compact .metadata-container.yaml-properties-managed .yaml-properties-yaml-editor,
+.yaml-properties-compact.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:has(.cm-hmd-frontmatter) {
+  font-size: 0.86em;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:has(.cm-hmd-frontmatter) {
+    transition: none;
+  }
+}
