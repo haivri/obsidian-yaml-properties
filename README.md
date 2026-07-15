@@ -127,6 +127,12 @@ Run `npm run build` for a production build.
 
 YAML Properties does not collect telemetry, make network requests, or send vault data anywhere.
 
+## Acknowledgements
+
+YAML Properties was conceived, directed, and tested by Robert Fleming. Its implementation, refinement, documentation, and release engineering were completed in close collaboration with OpenAI Codex, powered by GPT-5.
+
+Robert provided the vision and product decisions; AI assistance was invaluable in turning that vision into a polished community plugin. YAML Properties would not exist in its present form without that human–AI collaboration.
+
 ## License
 
 [MIT](LICENSE)
