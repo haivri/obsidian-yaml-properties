@@ -1,9 +1,10 @@
 {
   "id": "yaml-properties",
   "name": "YAML Properties",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.5.0",
   "description": "Edit properties as readable, syntax-highlighted YAML frontmatter and collapse them when not needed.",
   "author": "Robert Fleming",
+  "fundingUrl": "https://www.buymeacoffee.com/robertfleming",
   "isDesktopOnly": false
 }

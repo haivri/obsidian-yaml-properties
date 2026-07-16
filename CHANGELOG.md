@@ -2,6 +2,10 @@
 
 All notable changes to YAML Properties will be documented here.
 
+## 1.0.1 - 2026-07-15
+
+- Added an optional Buy Me a Coffee link for users who want to support continued development.
+
 ## 1.0.0 - 2026-07-15
 
 - Initial public release.
