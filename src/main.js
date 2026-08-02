@@ -6,16 +6,42 @@ const DEFAULT_SETTINGS = {
   rememberPerFile: true,
   styleSourceYaml: true,
   compactYaml: false,
-  collapsedFiles: {}
+  collapsedFiles: {},
+  customizeAppearance: false,
+  customBackgroundColor: '#000000',
+  customBackgroundOpacity: 20,
+  customBorderRadius: 8
 };
 
 const REFRESH_DEBOUNCE_MS = 16;
 const YAML_SAVE_DEBOUNCE_MS = 500;
 
+const YAML_PREVIEW_SAMPLE = [
+  'title: Sample note',
+  'tags:',
+  '  - important',
+  '  - draft',
+  'rating: 5',
+  'published: true',
+  'status: null',
+  'source: [[Home]]'
+].join('\n');
+
 class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
+    this.showParams = false;
+    this.showPreview = false;
+  }
+
+  redraw() {
+    const scroller = this.containerEl.closest('.vertical-tab-content-container');
+    const scrollTop = scroller ? scroller.scrollTop : 0;
+    this.display();
+    if (scroller) {
+      scroller.scrollTop = scrollTop;
+    }
   }
 
   display() {
@@ -79,6 +105,130 @@ class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
           this.plugin.settings.compactYaml = value;
           await this.plugin.saveSettings();
         }));
+
+    new obsidian.Setting(containerEl)
+      .setName('YAML block customization')
+      .setDesc('Edit the parameters, show a live preview, or reset to the theme defaults.')
+      .addButton((button) => {
+        button
+          .setButtonText('Edit')
+          .setIcon('pencil')
+          .setTooltip('Edit parameters')
+          .onClick(() => {
+            this.showParams = !this.showParams;
+            this.redraw();
+          });
+        button.buttonEl.addClass('yaml-properties-action-button');
+        if (this.showParams) {
+          button.buttonEl.addClass('is-active');
+        }
+      })
+      .addButton((button) => {
+        button
+          .setButtonText('Preview')
+          .setIcon('eye')
+          .setTooltip('Show preview')
+          .onClick(() => {
+            this.showPreview = !this.showPreview;
+            this.redraw();
+          });
+        button.buttonEl.addClass('yaml-properties-action-button');
+        if (this.showPreview) {
+          button.buttonEl.addClass('is-active');
+        }
+      })
+      .addButton((button) => {
+        const active = this.plugin.settings.customizeAppearance;
+        button
+          .setButtonText('Reset')
+          .setIcon('rotate-ccw')
+          .onClick(async () => {
+            if (!this.plugin.settings.customizeAppearance) {
+              return;
+            }
+            await this.plugin.resetAppearance();
+            this.redraw();
+          });
+        button.buttonEl.addClass('yaml-properties-action-button');
+        this.resetButtonEl = button.buttonEl;
+        if (!active) {
+          button.buttonEl.addClass('yaml-properties-action-disabled');
+        }
+        button.buttonEl.setAttribute('aria-label', active ? 'Reset to theme' : 'Disabled');
+      });
+
+    if (this.showParams) {
+      const backgroundSetting = new obsidian.Setting(containerEl)
+        .setName('Background color')
+        .setDesc('Background color of the YAML block, applied at the selected opacity.');
+      const colorInput = backgroundSetting.controlEl.createEl('input', { type: 'color' });
+      colorInput.value = this.plugin.settings.customBackgroundColor;
+      colorInput.addEventListener('input', () => {
+        this.plugin.settings.customizeAppearance = true;
+        this.plugin.settings.customBackgroundColor = colorInput.value;
+        this.plugin.applyCustomAppearance();
+        this.updateResetButton();
+      });
+      colorInput.addEventListener('change', async () => {
+        await this.plugin.saveSettings();
+      });
+
+      new obsidian.Setting(containerEl)
+        .setName('Background opacity')
+        .setDesc('How opaque the background color is. Lower values let the theme show through.')
+        .addSlider((slider) => {
+          slider.setLimits(0, 100, 5).setValue(this.plugin.settings.customBackgroundOpacity);
+          slider.sliderEl.addEventListener('input', () => {
+            this.plugin.settings.customizeAppearance = true;
+            this.plugin.settings.customBackgroundOpacity = slider.getValue();
+            this.plugin.applyCustomAppearance();
+            this.updateResetButton();
+          });
+          slider.sliderEl.addEventListener('change', async () => {
+            this.plugin.settings.customBackgroundOpacity = slider.getValue();
+            await this.plugin.saveSettings();
+          });
+        });
+
+      new obsidian.Setting(containerEl)
+        .setName('Corner radius')
+        .setDesc('Rounded corners of the YAML block, in pixels.')
+        .addSlider((slider) => {
+          slider.setLimits(0, 24, 1).setValue(this.plugin.settings.customBorderRadius);
+          slider.sliderEl.addEventListener('input', () => {
+            this.plugin.settings.customizeAppearance = true;
+            this.plugin.settings.customBorderRadius = slider.getValue();
+            this.plugin.applyCustomAppearance();
+            this.updateResetButton();
+          });
+          slider.sliderEl.addEventListener('change', async () => {
+            this.plugin.settings.customBorderRadius = slider.getValue();
+            await this.plugin.saveSettings();
+          });
+        });
+    }
+
+    if (this.showPreview) {
+      this.renderPreview(containerEl);
+    }
+  }
+
+  renderPreview(containerEl) {
+    const preview = containerEl.createDiv({ cls: 'yaml-properties-preview-container' });
+    const block = preview.createDiv({ cls: 'metadata-container yaml-properties-managed' });
+    const heading = block.createDiv({ cls: 'metadata-properties-heading' });
+    heading.createDiv({ cls: 'metadata-properties-title' }).setText('Properties ▾');
+    const yamlBlock = block.createDiv({ cls: 'yaml-properties-yaml' });
+    const readonly = yamlBlock.createDiv({ cls: 'yaml-properties-yaml-readonly' });
+    this.plugin.renderYamlInto(readonly, YAML_PREVIEW_SAMPLE);
+  }
+
+  updateResetButton() {
+    if (this.resetButtonEl) {
+      const active = this.plugin.settings.customizeAppearance;
+      this.resetButtonEl.classList.toggle('yaml-properties-action-disabled', !active);
+      this.resetButtonEl.setAttribute('aria-label', active ? 'Reset to theme' : 'Disabled');
+    }
   }
 }
 
@@ -94,6 +244,8 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     this.viewStates = new WeakMap();
     this.activeEditors = new Set();
     this.invalidYamlDrafts = new Map();
+
+    this.applyCustomAppearance();
 
     this.registerEvent(this.app.workspace.on('file-open', () => this.refreshAllViews()));
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.refreshAllViews()));
@@ -116,6 +268,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     this.disconnectObservers();
     this.cleanupAllViews();
     this.removeAppearanceFromAllViews();
+    this.removeCustomAppearance();
   }
 
   async saveSettings() {
@@ -124,6 +277,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
   }
 
   applyAppearanceSettings() {
+    this.applyCustomAppearance();
     this.app.workspace.iterateAllLeaves((leaf) => {
       if (leaf.view instanceof obsidian.MarkdownView) {
         this.applyAppearanceToView(leaf.view);
@@ -143,6 +297,50 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         leaf.view.contentEl.classList.remove('yaml-properties-style-source', 'yaml-properties-compact');
       }
     });
+  }
+
+  applyCustomAppearance() {
+    const body = document.body;
+    if (!this.settings.customizeAppearance) {
+      this.removeCustomAppearance();
+      return;
+    }
+
+    const color = this.normalizeHexColor(this.settings.customBackgroundColor) || '#000000';
+    const opacity = Math.min(100, Math.max(0, this.settings.customBackgroundOpacity ?? 20));
+    const radius = Math.min(24, Math.max(0, this.settings.customBorderRadius ?? 8));
+    body.style.setProperty('--yaml-properties-background', `color-mix(in srgb, ${color} ${opacity}%, transparent)`);
+    body.style.setProperty('--yaml-properties-radius', `${radius}px`);
+    body.classList.add('yaml-properties-customized');
+  }
+
+  normalizeHexColor(value) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const match = value.trim().toLowerCase().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
+    if (!match) {
+      return null;
+    }
+    const hex = match[1];
+    return hex.length === 3
+      ? `#${hex.split('').map((ch) => ch + ch).join('')}`
+      : `#${hex}`;
+  }
+
+  removeCustomAppearance() {
+    const body = document.body;
+    body.style.removeProperty('--yaml-properties-background');
+    body.style.removeProperty('--yaml-properties-radius');
+    body.classList.remove('yaml-properties-customized');
+  }
+
+  async resetAppearance() {
+    this.settings.customizeAppearance = false;
+    this.settings.customBackgroundColor = DEFAULT_SETTINGS.customBackgroundColor;
+    this.settings.customBackgroundOpacity = DEFAULT_SETTINGS.customBackgroundOpacity;
+    this.settings.customBorderRadius = DEFAULT_SETTINGS.customBorderRadius;
+    await this.saveSettings();
   }
 
   disconnectObservers() {

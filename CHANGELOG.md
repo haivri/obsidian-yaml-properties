@@ -2,6 +2,11 @@
 
 All notable changes to YAML Properties will be documented here.
 
+## 1.0.2 - 2026-08-02
+
+- Added a "Customize" settings section: choose your own background color, opacity, and corner radius for the YAML block, with a live preview in the settings tab.
+- Theme defaults remain the source of truth until customization is enabled.
+
 ## 1.0.1 - 2026-07-15
 
 - Added an optional Buy Me a Coffee link for users who want to support continued development.
