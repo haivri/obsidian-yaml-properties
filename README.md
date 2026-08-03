@@ -62,7 +62,7 @@ Use the command **YAML Properties: Toggle frontmatter** to toggle the active not
 - **Hide in reading mode** — Hide the custom frontmatter block in Reading view.
 - **Style YAML in source mode** — Enable the bundled source-mode highlighting. Disable this to let your theme or snippets handle Source mode.
 - **Compact YAML** — Use smaller type and tighter line spacing.
-- **YAML block customization** — Use your own background color, opacity, and corner radius for the YAML block instead of the theme defaults. The **Edit** button opens the parameters, **Preview** shows a live sample in the settings tab, and **Reset** returns to the theme defaults (disabled until you change a parameter).
+- **YAML block customization** — Use your own background color, opacity, corner radius, and border color for the YAML block, or hide the outer border entirely, instead of the theme defaults. The **Edit** button opens the parameters, **Preview** shows a live sample in the settings tab, and **Reset** returns to the theme defaults (disabled until you change a parameter).
 
 ## Customizing the colors
 

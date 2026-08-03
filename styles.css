@@ -25,6 +25,7 @@ body {
   --yaml-properties-indent: color-mix(in srgb, var(--text-faint) 44%, transparent);
   --yaml-properties-list-stripe: color-mix(in srgb, var(--yaml-properties-key) 10%, transparent);
   --yaml-properties-radius: 0.7rem;
+  --yaml-properties-border-color: color-mix(in srgb, var(--background-modifier-border) 88%, transparent);
 }
 
 body.theme-light {
@@ -81,7 +82,7 @@ body.theme-light {
 }
 
 .metadata-container.yaml-properties-managed {
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 88%, transparent);
+  border: 1px solid var(--yaml-properties-border-color);
   border-radius: var(--yaml-properties-radius);
   background: color-mix(in srgb, var(--background-secondary) 84%, transparent);
   padding: 0.2rem 0.3rem;
@@ -91,7 +92,6 @@ body.theme-light {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
-  padding: 0;
 }
 
 .metadata-container.yaml-properties-managed .metadata-properties-heading {
@@ -112,7 +112,6 @@ body.theme-light {
 }
 
 .metadata-container.yaml-properties-managed.is-collapsed .metadata-properties-heading {
-  padding: 0.12rem 0.28rem;
   opacity: 0.48;
   border-radius: 0;
 }
@@ -144,9 +143,8 @@ body.theme-light {
 }
 
 .metadata-container.yaml-properties-managed .yaml-properties-yaml {
-  margin: 0.1rem 0.2rem 0.25rem;
-  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 82%, transparent);
-  padding-top: 0.45rem;
+  margin: 0.05rem 0.2rem 0.25rem;
+  padding-top: 0.2rem;
 }
 
 .metadata-container.yaml-properties-managed.is-collapsed .yaml-properties-yaml {
@@ -445,4 +443,11 @@ body.yaml-properties-customized .metadata-container.yaml-properties-managed:not(
 body.yaml-properties-customized .metadata-container.yaml-properties-managed .yaml-properties-yaml-readonly,
 body.yaml-properties-customized .metadata-container.yaml-properties-managed .yaml-properties-yaml-preview {
   background: var(--yaml-properties-background);
+}
+
+/* Remove the outer rectangle around the block, keeping the inner code area. */
+body.yaml-properties-no-outer-border .metadata-container.yaml-properties-managed {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }

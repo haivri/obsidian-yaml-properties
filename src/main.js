@@ -10,7 +10,9 @@ const DEFAULT_SETTINGS = {
   customizeAppearance: false,
   customBackgroundColor: '#000000',
   customBackgroundOpacity: 20,
-  customBorderRadius: 8
+  customBorderRadius: 8,
+  customBorderColor: '#000000',
+  hideOuterBorder: false
 };
 
 const REFRESH_DEBOUNCE_MS = 16;
@@ -206,6 +208,34 @@ class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
+
+      const borderSetting = new obsidian.Setting(containerEl)
+        .setName('Border color')
+        .setDesc('Color of the outer block border.');
+      const borderInput = borderSetting.controlEl.createEl('input', { type: 'color' });
+      borderInput.value = this.plugin.settings.customBorderColor;
+      borderInput.addEventListener('input', () => {
+        this.plugin.settings.customizeAppearance = true;
+        this.plugin.settings.customBorderColor = borderInput.value;
+        this.plugin.applyCustomAppearance();
+        this.updateResetButton();
+      });
+      borderInput.addEventListener('change', async () => {
+        await this.plugin.saveSettings();
+      });
+
+      new obsidian.Setting(containerEl)
+        .setName('Hide outer border')
+        .setDesc('Remove the outer rectangle around the block, keeping the inner code area.')
+        .addToggle((toggle) => toggle
+          .setValue(this.plugin.settings.hideOuterBorder)
+          .onChange(async (value) => {
+            this.plugin.settings.customizeAppearance = true;
+            this.plugin.settings.hideOuterBorder = value;
+            this.plugin.applyCustomAppearance();
+            this.updateResetButton();
+            await this.plugin.saveSettings();
+          }));
     }
 
     if (this.showPreview) {
@@ -309,9 +339,12 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     const color = this.normalizeHexColor(this.settings.customBackgroundColor) || '#000000';
     const opacity = Math.min(100, Math.max(0, this.settings.customBackgroundOpacity ?? 20));
     const radius = Math.min(24, Math.max(0, this.settings.customBorderRadius ?? 8));
+    const borderColor = this.normalizeHexColor(this.settings.customBorderColor) || '#000000';
     body.style.setProperty('--yaml-properties-background', `color-mix(in srgb, ${color} ${opacity}%, transparent)`);
     body.style.setProperty('--yaml-properties-radius', `${radius}px`);
+    body.style.setProperty('--yaml-properties-border-color', borderColor);
     body.classList.add('yaml-properties-customized');
+    body.classList.toggle('yaml-properties-no-outer-border', !!this.settings.hideOuterBorder);
   }
 
   normalizeHexColor(value) {
@@ -332,7 +365,9 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     const body = document.body;
     body.style.removeProperty('--yaml-properties-background');
     body.style.removeProperty('--yaml-properties-radius');
+    body.style.removeProperty('--yaml-properties-border-color');
     body.classList.remove('yaml-properties-customized');
+    body.classList.remove('yaml-properties-no-outer-border');
   }
 
   async resetAppearance() {
@@ -340,6 +375,8 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     this.settings.customBackgroundColor = DEFAULT_SETTINGS.customBackgroundColor;
     this.settings.customBackgroundOpacity = DEFAULT_SETTINGS.customBackgroundOpacity;
     this.settings.customBorderRadius = DEFAULT_SETTINGS.customBorderRadius;
+    this.settings.customBorderColor = DEFAULT_SETTINGS.customBorderColor;
+    this.settings.hideOuterBorder = DEFAULT_SETTINGS.hideOuterBorder;
     await this.saveSettings();
   }
 
