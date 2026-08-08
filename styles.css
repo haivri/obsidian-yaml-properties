@@ -178,9 +178,12 @@ body.theme-light {
 
 .metadata-container.yaml-properties-managed .yaml-properties-yaml-editor-shell {
   position: relative;
+  width: 100%;
+  max-width: 100%;
   border-radius: 0.7rem;
   overflow-x: auto;
   overflow-y: hidden;
+  box-sizing: border-box;
 }
 
 .metadata-container.yaml-properties-managed .yaml-properties-yaml-preview {
@@ -194,7 +197,7 @@ body.theme-light {
 .metadata-container.yaml-properties-managed .yaml-properties-yaml-editor {
   position: absolute;
   inset: 0;
-  width: max-content;
+  width: 100%;
   min-width: 100%;
   min-height: 100%;
   margin: 0;
@@ -208,11 +211,23 @@ body.theme-light {
   font-size: 0.88em;
   line-height: 1.65;
   white-space: pre;
-  overflow-x: auto;
+  overflow: hidden;
   overflow-y: hidden;
   resize: none;
   box-sizing: border-box;
   -webkit-text-fill-color: transparent;
+}
+
+.yaml-properties-wrap .metadata-container.yaml-properties-managed .yaml-properties-yaml-readonly,
+.yaml-properties-wrap .metadata-container.yaml-properties-managed .yaml-properties-yaml-preview,
+.yaml-properties-wrap .metadata-container.yaml-properties-managed .yaml-properties-yaml-editor {
+  width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.yaml-properties-wrap .metadata-container.yaml-properties-managed .yaml-properties-yaml-editor-shell {
+  overflow-x: hidden;
 }
 
 .metadata-container.yaml-properties-managed .yaml-properties-yaml-editor:focus {

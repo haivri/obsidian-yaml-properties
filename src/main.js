@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = {
   rememberPerFile: true,
   styleSourceYaml: true,
   compactYaml: false,
+  wrapYaml: false,
   collapsedFiles: {}
 };
 
@@ -79,6 +80,16 @@ class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
           this.plugin.settings.compactYaml = value;
           await this.plugin.saveSettings();
         }));
+
+    new obsidian.Setting(containerEl)
+      .setName('Wrap YAML')
+      .setDesc('Wrap long YAML lines in live preview and reading mode instead of scrolling horizontally.')
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.wrapYaml)
+        .onChange(async (value) => {
+          this.plugin.settings.wrapYaml = value;
+          await this.plugin.saveSettings();
+        }));
   }
 }
 
@@ -135,12 +146,13 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
   applyAppearanceToView(view) {
     view.contentEl.classList.toggle('yaml-properties-style-source', !!this.settings.styleSourceYaml);
     view.contentEl.classList.toggle('yaml-properties-compact', !!this.settings.compactYaml);
+    view.contentEl.classList.toggle('yaml-properties-wrap', !!this.settings.wrapYaml);
   }
 
   removeAppearanceFromAllViews() {
     this.app.workspace.iterateAllLeaves((leaf) => {
       if (leaf.view instanceof obsidian.MarkdownView) {
-        leaf.view.contentEl.classList.remove('yaml-properties-style-source', 'yaml-properties-compact');
+        leaf.view.contentEl.classList.remove('yaml-properties-style-source', 'yaml-properties-compact', 'yaml-properties-wrap');
       }
     });
   }
@@ -495,8 +507,19 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       this.renderYamlInto(preview, frontmatterInfo.raw);
 
       const textarea = editorShell.createEl('textarea', {
-        cls: 'yaml-properties-yaml-editor'
+        cls: 'yaml-properties-yaml-editor',
+        attr: {
+          wrap: this.settings.wrapYaml ? 'soft' : 'off'
+        }
       });
+      const syncEditorSize = () => {
+        if (this.settings.wrapYaml) {
+          textarea.style.removeProperty('width');
+          return;
+        }
+
+        textarea.style.width = `${Math.max(editorShell.clientWidth, preview.scrollWidth)}px`;
+      };
       const stopEvent = (event) => {
         event.stopPropagation();
       };
@@ -505,12 +528,11 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       textarea.addEventListener('mousedown', stopEvent);
       textarea.addEventListener('click', stopEvent);
       textarea.value = frontmatterInfo.raw;
+      window.requestAnimationFrame(syncEditorSize);
       textarea.addEventListener('input', () => {
         this.renderYamlInto(preview, textarea.value);
+        syncEditorSize();
         this.scheduleYamlSave(view, textarea);
-      });
-      textarea.addEventListener('scroll', () => {
-        preview.scrollLeft = textarea.scrollLeft;
       });
       textarea.addEventListener('focus', () => {
         const key = this.getFileKey(view);

@@ -62,6 +62,7 @@ Use the command **YAML Properties: Toggle frontmatter** to toggle the active not
 - **Hide in reading mode** — Hide the custom frontmatter block in Reading view.
 - **Style YAML in source mode** — Enable the bundled source-mode highlighting. Disable this to let your theme or snippets handle Source mode.
 - **Compact YAML** — Use smaller type and tighter line spacing.
+- **Wrap YAML** — Wrap long YAML lines in Live Preview and reading mode. It is off by default so long lines use horizontal scrolling.
 
 ## Customizing the colors
 

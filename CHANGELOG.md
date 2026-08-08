@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2 - 2026-08-08
+
+- Add an off-by-default setting to wrap YAML in Live Preview and reading mode.
+- Restore horizontal scrolling for unwrapped YAML editors.
+
 All notable changes to YAML Properties will be documented here.
 
 ## 1.0.1 - 2026-07-15
