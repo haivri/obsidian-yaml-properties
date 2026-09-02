@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4 - 2026-09-02
+
+- Fixed the page jumping into the note body when tapping into the properties editor on mobile: pointer and touch events no longer bubble from the properties editor into CodeMirror (a bubbled tap let the editor set its selection from the touch coordinates and scroll there), and the focus-time cursor park is scroll-pinned like the saves.
+- Further mobile scroll-jump hardening while editing properties: the underlying editor's cursor is parked at the document start during a properties edit (a stale mid-note cursor was scrolled into view by the debounced save), the editor's scroll position is pinned across each frontmatter write, and key events no longer bubble from the properties editor into CodeMirror.
+
 ## 1.0.3 - 2026-09-02
 
 - Fix Live Preview scroll jumps while editing properties (worst on mobile): the debounced YAML save replaced the whole document, which remapped the editor selection to the end of the note and scrolled it into view. The save now replaces only the frontmatter block.

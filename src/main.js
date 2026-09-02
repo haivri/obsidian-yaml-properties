@@ -631,10 +631,20 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       const stopEvent = (event) => {
         event.stopPropagation();
       };
-      editorShell.addEventListener('mousedown', stopEvent);
-      editorShell.addEventListener('click', stopEvent);
-      textarea.addEventListener('mousedown', stopEvent);
-      textarea.addEventListener('click', stopEvent);
+      // The editor shell lives inside CodeMirror's DOM tree, so pointer,
+      // touch, and key events bubbling out of the textarea reach the
+      // editor's own handlers — on mobile, a bubbled tap lets the editor
+      // set its selection from the touch coordinates and scroll there.
+      for (const target of [editorShell, textarea]) {
+        target.addEventListener('mousedown', stopEvent);
+        target.addEventListener('click', stopEvent);
+        target.addEventListener('pointerdown', stopEvent);
+        target.addEventListener('pointerup', stopEvent);
+        target.addEventListener('touchstart', stopEvent, { passive: true });
+        target.addEventListener('touchend', stopEvent, { passive: true });
+      }
+      textarea.addEventListener('keyup', stopEvent);
+      textarea.addEventListener('keypress', stopEvent);
       textarea.value = frontmatterInfo.raw;
       window.requestAnimationFrame(syncEditorSize);
       textarea.addEventListener('input', () => {
@@ -647,8 +657,21 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         if (key) {
           this.activeEditors.add(key);
         }
+        // Park the underlying editor's cursor at the document start. The
+        // debounced frontmatter writes are document changes, and Obsidian
+        // (mobile especially) scrolls the editor cursor into view on a
+        // change — a cursor left mid-note from earlier body editing yanks
+        // the page down there. The park itself must be scroll-pinned too:
+        // line 0 sits in the hidden frontmatter region, whose scroll-target
+        // geometry is unreliable mid-layout (keyboard opening, widgets
+        // resizing), so a bare setCursor can land the view somewhere else
+        // entirely.
+        if (view.editor) {
+          this.withPinnedScroll(view, () => view.editor.setCursor({ line: 0, ch: 0 }));
+        }
       });
       textarea.addEventListener('keydown', async (event) => {
+        event.stopPropagation();
         if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.altKey) {
           event.preventDefault();
           const start = textarea.selectionStart;
@@ -955,6 +978,26 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     return view.file ? view.file.path : null;
   }
 
+  // Runs an editor operation with the scroll position pinned: captured
+  // before, restored immediately after, and restored once more on the next
+  // frame — the mobile editor performs its cursor-into-view scroll on a
+  // deferred frame.
+  withPinnedScroll(view, operation) {
+    const editor = view.editor;
+    const scrollInfo = editor && typeof editor.getScrollInfo === 'function' ? editor.getScrollInfo() : null;
+    operation();
+    if (!scrollInfo || !editor || typeof editor.scrollTo !== 'function') {
+      return;
+    }
+    editor.scrollTo(scrollInfo.left, scrollInfo.top);
+    const win = view.contentEl?.win || window;
+    win.requestAnimationFrame(() => {
+      if (view.editor && typeof view.editor.scrollTo === 'function') {
+        view.editor.scrollTo(scrollInfo.left, scrollInfo.top);
+      }
+    });
+  }
+
   getRenderedCollapsedState(view) {
     if (this.isTrueSourceMode(view)) {
       return false;
@@ -1121,7 +1164,9 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       // the page down mid-edit (most visibly on mobile, where the debounced
       // save fires while the keyboard is up).
       const frontmatterEnd = view.editor.offsetToPos(match[0].length);
-      view.editor.replaceRange(replacement, { line: 0, ch: 0 }, frontmatterEnd);
+      // Pin the scroll position across the write: even a frontmatter-only
+      // replace can make the editor scroll its cursor into view.
+      this.withPinnedScroll(view, () => view.editor.replaceRange(replacement, { line: 0, ch: 0 }, frontmatterEnd));
     } else {
       await this.app.vault.process(file, (latestContent) => latestContent.replace(
         /^---\n[\s\S]*?\n(?:---|\.\.\.)\n?/,
