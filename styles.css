@@ -41,6 +41,110 @@ body.theme-light {
   --yaml-properties-rail-active: color-mix(in srgb, var(--yaml-properties-key) 42%, transparent);
 }
 
+/*
+ * Color themes (the "Color theme" plugin setting toggles one body class).
+ * Palettes are drawn from traditional Japanese pigments: dark mode carries
+ * tints readable on a dark ground, light mode the deeper traditional
+ * values. Keys, comments, punctuation, and backgrounds stay derived from
+ * the Obsidian theme above. The Custom theme has no CSS block — the plugin
+ * applies its picker values as inline variables on <body>, which win here.
+ */
+
+/* Ukiyo-e — the woodblock print card: yamabuki gold, kohaku amber,
+   shu vermillion, fuji wisteria, asagi water-blue, ruri lapis. */
+body.yaml-properties-theme-ukiyoe {
+  --yaml-properties-string: #f0c25e;
+  --yaml-properties-number: #e89a5a;
+  --yaml-properties-boolean: #f26d4f;
+  --yaml-properties-null: #b9aedf;
+  --yaml-properties-anchor: #74c7d6;
+  --yaml-properties-link: #82b4e8;
+  --yaml-properties-date: #e89a5a;
+  --yaml-properties-tag: #e893b7;
+}
+
+body.theme-light.yaml-properties-theme-ukiyoe {
+  --yaml-properties-string: #a87900;
+  --yaml-properties-number: #b55d18;
+  --yaml-properties-boolean: #d14900;
+  --yaml-properties-null: #745399;
+  --yaml-properties-anchor: #00889e;
+  --yaml-properties-link: #1e50a2;
+  --yaml-properties-date: #b55d18;
+  --yaml-properties-tag: #c24e7d;
+}
+
+/* Aizome — an indigo-dye ladder: tonal steps of ai, quiet and near-monochrome. */
+body.yaml-properties-theme-aizome {
+  --yaml-properties-string: #aecbdf;
+  --yaml-properties-number: #cbdeeb;
+  --yaml-properties-boolean: #7fb4d4;
+  --yaml-properties-null: #8c9fb1;
+  --yaml-properties-anchor: #c4d8e7;
+  --yaml-properties-link: #93c1df;
+  --yaml-properties-date: #cbdeeb;
+  --yaml-properties-tag: #6f96b0;
+}
+
+body.theme-light.yaml-properties-theme-aizome {
+  --yaml-properties-string: #165e83;
+  --yaml-properties-number: #1c4a66;
+  --yaml-properties-boolean: #0e3a54;
+  --yaml-properties-null: #6e8493;
+  --yaml-properties-anchor: #2f5868;
+  --yaml-properties-link: #19678f;
+  --yaml-properties-date: #1c4a66;
+  --yaml-properties-tag: #4b7691;
+}
+
+/* Nihonga — mineral pigments: kin gold, rokushō malachite, ginshu coral,
+   kikyō bellflower, gunjō ultramarine, edo-murasaki purple. */
+body.yaml-properties-theme-nihonga {
+  --yaml-properties-string: #e2c96e;
+  --yaml-properties-number: #8cc9a4;
+  --yaml-properties-boolean: #e27e6c;
+  --yaml-properties-null: #adb1d3;
+  --yaml-properties-anchor: #93d1c6;
+  --yaml-properties-link: #92aae9;
+  --yaml-properties-date: #8cc9a4;
+  --yaml-properties-tag: #bc9ed9;
+}
+
+body.theme-light.yaml-properties-theme-nihonga {
+  --yaml-properties-string: #96751b;
+  --yaml-properties-number: #47885e;
+  --yaml-properties-boolean: #c85554;
+  --yaml-properties-null: #5654a2;
+  --yaml-properties-anchor: #2e7d72;
+  --yaml-properties-link: #4c6cb3;
+  --yaml-properties-date: #47885e;
+  --yaml-properties-tag: #745399;
+}
+
+/* Momiji — the autumn garden: ichō gold, kaki persimmon, kurenai maple,
+   moegi moss, nadeshiko pink. */
+body.yaml-properties-theme-momiji {
+  --yaml-properties-string: #f0b45b;
+  --yaml-properties-number: #ee8e5c;
+  --yaml-properties-boolean: #e45d6e;
+  --yaml-properties-null: #c4aca1;
+  --yaml-properties-anchor: #b4c287;
+  --yaml-properties-link: #d8a87f;
+  --yaml-properties-date: #ee8e5c;
+  --yaml-properties-tag: #cb7e97;
+}
+
+body.theme-light.yaml-properties-theme-momiji {
+  --yaml-properties-string: #9f730d;
+  --yaml-properties-number: #c25617;
+  --yaml-properties-boolean: #a6213e;
+  --yaml-properties-null: #85685c;
+  --yaml-properties-anchor: #697a36;
+  --yaml-properties-link: #91602b;
+  --yaml-properties-date: #c25617;
+  --yaml-properties-tag: #a04a69;
+}
+
 .markdown-source-view.mod-cm6.yaml-properties-managed .yaml-properties-toggle {
   display: flex;
   flex-direction: column;

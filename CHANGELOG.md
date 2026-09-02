@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3 - 2026-09-02
+
+- Fix Live Preview scroll jumps while editing properties (worst on mobile): the debounced YAML save replaced the whole document, which remapped the editor selection to the end of the note and scrolled it into view. The save now replaces only the frontmatter block.
+- Add a Color theme setting for the highlighted YAML values, with light- and dark-tuned presets drawn from traditional Japanese pigments — Ukiyo-e, Aizome, Nihonga, Momiji — plus a Custom theme with per-role color pickers. Keys, comments, and punctuation stay derived from the active Obsidian theme, and the `--yaml-properties-*` CSS variables remain overridable by snippets.
+
 ## 1.0.2 - 2026-08-08
 
 - Add an off-by-default setting to wrap YAML in Live Preview and reading mode.

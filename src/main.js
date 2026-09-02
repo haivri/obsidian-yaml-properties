@@ -7,8 +7,40 @@ const DEFAULT_SETTINGS = {
   styleSourceYaml: true,
   compactYaml: false,
   wrapYaml: false,
+  colorTheme: 'Default',
+  customColors: {
+    string: '#f4dc92',
+    number: '#f1bf8a',
+    boolean: '#ff6b6b',
+    null: '#ffb7db',
+    anchor: '#d8c7ff',
+    link: '#c8e7ff',
+    tag: '#f3a8ff'
+  },
   collapsedFiles: {}
 };
+
+// Preset palettes live in styles.css as body-class variable overrides with
+// tuned light- and dark-mode variants; Custom applies the picker values
+// inline (one set, used in both modes).
+const COLOR_THEME_CLASSES = {
+  'Ukiyo-e': 'yaml-properties-theme-ukiyoe',
+  'Aizome': 'yaml-properties-theme-aizome',
+  'Nihonga': 'yaml-properties-theme-nihonga',
+  'Momiji': 'yaml-properties-theme-momiji'
+};
+
+const COLOR_THEME_OPTIONS = ['Default', 'Ukiyo-e', 'Aizome', 'Nihonga', 'Momiji', 'Custom'];
+
+const CUSTOM_COLOR_ROLES = [
+  { key: 'string', name: 'Strings', desc: 'Plain and quoted text values — most of the frontmatter.' },
+  { key: 'number', name: 'Numbers' },
+  { key: 'boolean', name: 'Booleans' },
+  { key: 'null', name: 'Null values' },
+  { key: 'anchor', name: 'Anchors', desc: 'YAML anchors and variables (source mode).' },
+  { key: 'link', name: 'Links', desc: 'URLs and internal links.' },
+  { key: 'tag', name: 'Tags' }
+];
 
 const REFRESH_DEBOUNCE_MS = 16;
 const YAML_SAVE_DEBOUNCE_MS = 500;
@@ -90,12 +122,58 @@ class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
           this.plugin.settings.wrapYaml = value;
           await this.plugin.saveSettings();
         }));
+
+    new obsidian.Setting(containerEl)
+      .setName('Color theme')
+      .setDesc('Palette for the highlighted YAML values, in both the properties block and source mode. Presets carry tuned light- and dark-mode variants; Custom uses the pickers below in both modes. Keys, comments, and punctuation stay derived from your Obsidian theme.')
+      .addDropdown((dropdown) => {
+        for (const option of COLOR_THEME_OPTIONS) {
+          dropdown.addOption(option, option);
+        }
+        dropdown
+          .setValue(COLOR_THEME_OPTIONS.includes(this.plugin.settings.colorTheme)
+            ? this.plugin.settings.colorTheme
+            : 'Default')
+          .onChange(async (value) => {
+            this.plugin.settings.colorTheme = value;
+            await this.plugin.saveSettings();
+            this.display();
+          });
+      });
+
+    if (this.plugin.settings.colorTheme === 'Custom') {
+      for (const role of CUSTOM_COLOR_ROLES) {
+        const setting = new obsidian.Setting(containerEl)
+          .setName(role.name)
+          .addColorPicker((picker) => picker
+            .setValue(this.plugin.settings.customColors[role.key])
+            .onChange(async (value) => {
+              this.plugin.settings.customColors[role.key] = value;
+              await this.plugin.saveSettings();
+            }));
+        if (role.desc) {
+          setting.setDesc(role.desc);
+        }
+      }
+
+      new obsidian.Setting(containerEl)
+        .addButton((button) => button
+          .setButtonText('Reset custom colors')
+          .onClick(async () => {
+            this.plugin.settings.customColors = Object.assign({}, DEFAULT_SETTINGS.customColors);
+            await this.plugin.saveSettings();
+            this.display();
+          }));
+    }
   }
 }
 
 class YamlPropertiesPlugin extends obsidian.Plugin {
   async onload() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const stored = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
+    this.settings.customColors = Object.assign({}, DEFAULT_SETTINGS.customColors, stored?.customColors);
+    this.applyColorTheme();
     this.refreshTimers = new Map();
     this.observers = new Map();
     this.viewEventHandlers = new Map();
@@ -127,11 +205,41 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     this.disconnectObservers();
     this.cleanupAllViews();
     this.removeAppearanceFromAllViews();
+    this.removeColorTheme();
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
     this.applyAppearanceSettings();
+    this.applyColorTheme();
+  }
+
+  applyColorTheme() {
+    const body = document.body;
+    const activeClass = COLOR_THEME_CLASSES[this.settings.colorTheme];
+    for (const themeClass of Object.values(COLOR_THEME_CLASSES)) {
+      body.classList.toggle(themeClass, themeClass === activeClass);
+    }
+
+    const isCustom = this.settings.colorTheme === 'Custom';
+    for (const role of CUSTOM_COLOR_ROLES) {
+      const varName = `--yaml-properties-${role.key}`;
+      if (isCustom) {
+        body.style.setProperty(varName, this.settings.customColors[role.key]);
+      } else {
+        body.style.removeProperty(varName);
+      }
+    }
+  }
+
+  removeColorTheme() {
+    const body = document.body;
+    for (const themeClass of Object.values(COLOR_THEME_CLASSES)) {
+      body.classList.remove(themeClass);
+    }
+    for (const role of CUSTOM_COLOR_ROLES) {
+      body.style.removeProperty(`--yaml-properties-${role.key}`);
+    }
   }
 
   applyAppearanceSettings() {
@@ -1005,12 +1113,15 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
 
     const delimiter = match[2];
     const replacement = `---\n${normalizedYaml}\n${delimiter}\n`;
-    const updatedContent = currentContent.replace(/^---\n[\s\S]*?\n(?:---|\.\.\.)\n?/, replacement);
 
     if (view.editor) {
-      const lastLine = view.editor.lastLine();
-      const lastCh = view.editor.getLine(lastLine).length;
-      view.editor.replaceRange(updatedContent, { line: 0, ch: 0 }, { line: lastLine, ch: lastCh });
+      // Replace only the frontmatter block. Replacing the whole document
+      // remaps the editor selection to the end of the inserted text — the
+      // bottom of the note — and the editor scrolls it into view, yanking
+      // the page down mid-edit (most visibly on mobile, where the debounced
+      // save fires while the keyboard is up).
+      const frontmatterEnd = view.editor.offsetToPos(match[0].length);
+      view.editor.replaceRange(replacement, { line: 0, ch: 0 }, frontmatterEnd);
     } else {
       await this.app.vault.process(file, (latestContent) => latestContent.replace(
         /^---\n[\s\S]*?\n(?:---|\.\.\.)\n?/,
