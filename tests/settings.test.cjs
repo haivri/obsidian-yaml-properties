@@ -42,7 +42,8 @@ test('settings keep palette keys stable with friendly display names', () => {
   assert.equal(catalog.order.length, 12);
   for (const name of catalog.order) assert.equal(dropdown.options[name], name === 'ThinkOrSwim' ? 'Gold & Vermilion' : name);
   for (const name of ['Ukiyo-e', 'Nihonga', 'Momiji']) assert.equal(dropdown.options[name], name);
-  assert.equal(Object.keys(dropdown.options).at(-1), 'Custom');
+  assert.equal(Object.keys(dropdown.options)[0], 'Default');
+  assert.deepEqual(Object.keys(dropdown.options).slice(-4), ['Aizome', 'Murasaki', 'Sumi', 'Custom']);
 });
 test('selecting Custom displays the color section; presets preserve the custom values', async () => {
   const f = fixture(); f.tab.display();

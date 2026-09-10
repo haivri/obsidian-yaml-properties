@@ -31,7 +31,14 @@ const COLOR_THEME_CLASSES = {
   ...Object.fromEntries(Object.entries(themeCatalog.themes).map(([name, theme]) => [name, theme.className]))
 };
 
-const COLOR_THEME_OPTIONS = ['Default', ...themeCatalog.order, 'Ukiyo-e', 'Nihonga', 'Momiji', 'Custom'];
+const MONOCHROMATIC_THEMES = ['Aizome', 'Murasaki', 'Sumi'];
+const COLOR_THEME_OPTIONS = [
+  'Default',
+  ...themeCatalog.order.filter((name) => !MONOCHROMATIC_THEMES.includes(name)),
+  'Ukiyo-e', 'Nihonga', 'Momiji',
+  ...MONOCHROMATIC_THEMES,
+  'Custom'
+];
 // Keep catalog keys stable so existing selections and generated palettes still match.
 const COLOR_THEME_LABELS = { ThinkOrSwim: 'Gold & Vermilion' };
 

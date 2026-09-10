@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.12 - 2026-09-10
+
+- Group the monochromatic Aizome, Murasaki, and Sumi palettes together after the other palettes, keeping Default first and Custom last.
+
 ## 1.0.11 - 2026-09-10
 
 - Remove the legacy labels from Ukiyo-e, Nihonga, and Momiji, keeping all three palettes available.
