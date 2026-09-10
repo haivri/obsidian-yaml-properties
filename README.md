@@ -4,10 +4,6 @@ Edit Obsidian Properties as readable, syntax-highlighted YAML frontmatter, then 
 
 YAML Properties is for people who want the portability and full expressiveness of raw YAML without giving up a clean writing view. It replaces the in-note Properties editor with an editable YAML block in Live Preview, shows a highlighted read-only block in Reading view, and leaves normal Source mode available.
 
-<p align="center">
-  <img src="assets/yaml-properties-expanded.png" alt="An expanded YAML Properties editor with syntax-highlighted frontmatter" width="900">
-</p>
-
 ## Features
 
 - Edit raw YAML frontmatter directly in Live Preview.
@@ -20,7 +16,13 @@ YAML Properties is for people who want the portability and full expressiveness o
 
 Your notes remain plain Markdown. The plugin does not add proprietary metadata or modify YAML unless you edit it.
 
+<a href="https://www.buymeacoffee.com/robertfleming"><img src="assets/buy-me-a-coffee.png" alt="Buy me a coffee" width="217"></a>
+
 ## See it in action
+
+<p align="center">
+  <img src="screenshots/01-expanded.png" alt="An expanded YAML Properties editor with syntax-highlighted frontmatter" width="900">
+</p>
 
 ### Collapse frontmatter into a quiet summary
 
@@ -108,14 +110,25 @@ Then reload Obsidian and enable **YAML Properties** under Community plugins.
 
 ## Development
 
-Requires Node.js 18 or newer.
+Requires Node.js 24 or newer.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Run `npm run build` for a production build.
+Run `npm run build` for a production build and `npm test` for regression checks.
+
+Settings are grouped into **Display**, **Layout**, and **Colors**. The twelve shared
+trading palettes use the Ichimoku catalog names: Semaphore, Aizome, ATAS Directional,
+Japanese Indigo, Kikyō, Kinran, Material, Murasaki, Shippō, Shōchikubai, Sumi, and
+ThinkOrSwim. Presets follow Obsidian’s light/dark appearance automatically. Custom
+colors remain editable; Ukiyo-e, Nihonga, and Momiji remain available as legacy palettes.
+
+`src/theme-catalog.json` records the shared palette snapshot and its source hash.
+Run `node scripts/sync-themes.cjs <canonical-themes.json>` to refresh it, or
+`node scripts/sync-themes.cjs --check` to check the generated CSS. The public build
+uses the committed snapshot and needs no external theme repository.
 
 ## Release checklist
 
@@ -138,6 +151,16 @@ YAML Properties was conceived, directed, and tested by Robert Fleming. Its imple
 
 Robert provided the vision and product decisions; AI assistance was invaluable in turning that vision into a polished community plugin. YAML Properties would not exist in its present form without that human–AI collaboration.
 
+Robert Fleming directed and reviewed this work. Recent refinements, documentation, and screenshot preparation were developed in collaboration with OpenAI Codex, powered by GPT-6. Thank you to the AI collaborators who helped bring these ideas into a usable community plugin.
+
 ## License
 
 [MIT](LICENSE)
+
+## Screenshot demo
+
+A [ready-to-use screenshot kit](bootstrap/README.md) includes demo notes and capture instructions.
+
+## Feedback
+
+Bug reports are welcome in this repository’s issue tracker when available. Include your Obsidian and plugin versions, desktop or mobile, a short reproduction, and expected versus actual behavior. Use a small sample note without personal content. This is a spare-time project; fixes and replies have no guaranteed schedule. Contributions and forks are welcome; donations are optional.

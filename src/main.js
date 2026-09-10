@@ -1,4 +1,5 @@
 import * as obsidian from 'obsidian';
+import themeCatalog from './theme-catalog.json';
 
 const DEFAULT_SETTINGS = {
   collapsedByDefault: true,
@@ -25,12 +26,13 @@ const DEFAULT_SETTINGS = {
 // inline (one set, used in both modes).
 const COLOR_THEME_CLASSES = {
   'Ukiyo-e': 'yaml-properties-theme-ukiyoe',
-  'Aizome': 'yaml-properties-theme-aizome',
   'Nihonga': 'yaml-properties-theme-nihonga',
-  'Momiji': 'yaml-properties-theme-momiji'
+  'Momiji': 'yaml-properties-theme-momiji',
+  ...Object.fromEntries(Object.entries(themeCatalog.themes).map(([name, theme]) => [name, theme.className]))
 };
 
-const COLOR_THEME_OPTIONS = ['Default', 'Ukiyo-e', 'Aizome', 'Nihonga', 'Momiji', 'Custom'];
+const COLOR_THEME_OPTIONS = ['Default', ...themeCatalog.order, 'Custom', 'Ukiyo-e', 'Nihonga', 'Momiji'];
+const LEGACY_THEMES = new Set(['Ukiyo-e', 'Nihonga', 'Momiji']);
 
 const CUSTOM_COLOR_ROLES = [
   { key: 'string', name: 'Strings', desc: 'Plain and quoted text values — most of the frontmatter.' },
@@ -45,7 +47,7 @@ const CUSTOM_COLOR_ROLES = [
 const REFRESH_DEBOUNCE_MS = 16;
 const YAML_SAVE_DEBOUNCE_MS = 500;
 
-class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
+export class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -54,6 +56,8 @@ class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
+
+    new obsidian.Setting(containerEl).setName('Display').setHeading();
 
     new obsidian.Setting(containerEl)
       .setName('Collapse by default')
@@ -93,6 +97,8 @@ class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
           this.plugin.refreshAllViews();
         }));
 
+    new obsidian.Setting(containerEl).setName('Layout').setHeading();
+
     new obsidian.Setting(containerEl)
       .setName('Style YAML in source mode')
       .setDesc('Apply the bundled YAML highlighting and frontmatter block styling in source mode. Turn this off to use only your theme or CSS snippets.')
@@ -123,12 +129,14 @@ class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
+    new obsidian.Setting(containerEl).setName('Colors').setHeading();
+
     new obsidian.Setting(containerEl)
       .setName('Color theme')
-      .setDesc('Palette for the highlighted YAML values, in both the properties block and source mode. Presets carry tuned light- and dark-mode variants; Custom uses the pickers below in both modes. Keys, comments, and punctuation stay derived from your Obsidian theme.')
+      .setDesc('Shared trading palettes for YAML values. Presets automatically follow Obsidian’s light or dark appearance, including when it changes. Keys and backgrounds follow your Obsidian theme.')
       .addDropdown((dropdown) => {
         for (const option of COLOR_THEME_OPTIONS) {
-          dropdown.addOption(option, option);
+          dropdown.addOption(option, option === 'Default' ? 'Default' : LEGACY_THEMES.has(option) ? `${option} (legacy)` : option);
         }
         dropdown
           .setValue(COLOR_THEME_OPTIONS.includes(this.plugin.settings.colorTheme)
@@ -142,6 +150,10 @@ class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
       });
 
     if (this.plugin.settings.colorTheme === 'Custom') {
+      new obsidian.Setting(containerEl)
+        .setName('Custom colors')
+        .setDesc('Your chosen colors are used in both light and dark mode. Switching presets keeps these colors for later.')
+        .setHeading();
       for (const role of CUSTOM_COLOR_ROLES) {
         const setting = new obsidian.Setting(containerEl)
           .setName(role.name)
@@ -173,6 +185,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     const stored = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
     this.settings.customColors = Object.assign({}, DEFAULT_SETTINGS.customColors, stored?.customColors);
+    this.settings.colorTheme = themeCatalog.aliases[this.settings.colorTheme] || this.settings.colorTheme;
     this.applyColorTheme();
     this.refreshTimers = new Map();
     this.observers = new Map();
@@ -182,11 +195,42 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     this.sessionStates = new Map();
     this.viewStates = new WeakMap();
     this.activeEditors = new Set();
+    this.activeYamlTextareas = new Map();
     this.invalidYamlDrafts = new Map();
+    this.lastFrontmatterByPath = new Map();
 
     this.registerEvent(this.app.workspace.on('file-open', () => this.refreshAllViews()));
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.refreshAllViews()));
     this.registerEvent(this.app.workspace.on('layout-change', () => this.refreshAllViews()));
+
+    // A view whose note has no frontmatter carries no MutationObserver (refreshView
+    // tears it down), so frontmatter created in place by another plugin — e.g. a
+    // lock property written via processFrontMatter — would otherwise render as the
+    // stock properties widget until the next workspace event.
+    this.registerEvent(this.app.metadataCache.on('changed', (file, data, cache) => {
+      // frontmatterPosition distinguishes an empty `---`/`---` block from no
+      // block at all — cache.frontmatter is empty for both.
+      const snapshot = JSON.stringify({
+        frontmatter: cache?.frontmatter ?? null,
+        hasBlock: !!cache?.frontmatterPosition
+      });
+      if (this.lastFrontmatterByPath.get(file.path) === snapshot) {
+        return;
+      }
+      this.lastFrontmatterByPath.set(file.path, snapshot);
+      this.app.workspace.iterateAllLeaves((leaf) => {
+        const view = leaf.view;
+        if (view instanceof obsidian.MarkdownView && view.file && view.file.path === file.path) {
+          this.scheduleRefresh(view);
+        }
+      });
+    }));
+    this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
+      this.lastFrontmatterByPath.delete(oldPath);
+    }));
+    this.registerEvent(this.app.vault.on('delete', (file) => {
+      this.lastFrontmatterByPath.delete(file.path);
+    }));
 
     this.addCommand({
       id: 'toggle-frontmatter',
@@ -202,6 +246,8 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     this.yamlSaveTimers.forEach((timer) => window.clearTimeout(timer));
     this.yamlSaveTimers.clear();
     this.invalidYamlDrafts.clear();
+    this.activeEditors.clear();
+    this.activeYamlTextareas.clear();
     this.disconnectObservers();
     this.cleanupAllViews();
     this.removeAppearanceFromAllViews();
@@ -345,13 +391,27 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
 
     const fileKey = this.getFileKey(view);
     if (fileKey && this.activeEditors.has(fileKey)) {
-      return;
+      const activeTextarea = this.activeYamlTextareas.get(fileKey);
+      if (activeTextarea && activeTextarea.isConnected) {
+        return;
+      }
+      // The tracked editor's DOM was torn down without a blur event (browsers
+      // fire none when a focused element is removed). Left in place, this key
+      // would block every future refresh of the file — clear it and continue.
+      // Its last value is not committed here: an external teardown means an
+      // external rewrite may have landed, and a stale draft must not clobber it.
+      this.activeEditors.delete(fileKey);
+      this.activeYamlTextareas.delete(fileKey);
     }
 
     const frontmatterInfo = await this.getFrontmatterInfo(view);
     if (!frontmatterInfo) {
       this.sourceModeFiles.delete(view);
-      this.teardownView(view);
+      // Keep watching: frontmatter can appear without a workspace event
+      // (another plugin writing it, or an editor re-sync landing after this
+      // pass), and only the observer can catch that.
+      this.ensureObserver(view);
+      this.teardownView(view, { preserveObserver: true });
       return;
     }
 
@@ -369,7 +429,23 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
 
     this.ensureObserver(view);
 
-    const containers = this.getMetadataContainers(view);
+    let containers = this.getMetadataContainers(view);
+    const stockContainers = containers.filter((container) => !container.classList.contains('yaml-properties-synthetic'));
+    if (stockContainers.length > 0) {
+      for (const container of containers) {
+        if (!stockContainers.includes(container)) {
+          container.remove();
+        }
+      }
+      containers = stockContainers;
+    } else if (containers.length === 0 && !frontmatterInfo.raw) {
+      // Obsidian renders no properties widget for an empty `---`/`---` block,
+      // so there is nothing to decorate — build our own container to host the
+      // empty-state editor and the remove button. Non-empty frontmatter with
+      // no container yet is a transient render state the observer resolves.
+      const synthetic = this.createSyntheticContainer(view);
+      containers = synthetic ? [synthetic] : [];
+    }
     if (containers.length === 0) {
       return;
     }
@@ -377,6 +453,28 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     for (const container of containers) {
       this.renderMetadataContainer(view, container, frontmatterInfo);
     }
+  }
+
+  createSyntheticContainer(view) {
+    const activePane = this.getActiveModePane(view);
+    if (!activePane || !activePane.classList.contains('markdown-source-view')) {
+      return null;
+    }
+
+    const cmSizer = activePane.querySelector(':scope > .cm-editor > .cm-scroller > .cm-sizer');
+    if (!cmSizer) {
+      return null;
+    }
+
+    const container = cmSizer.createDiv({ cls: ['metadata-container', 'yaml-properties-synthetic'] });
+    const contentContainer = cmSizer.querySelector(':scope > .cm-contentContainer');
+    if (contentContainer) {
+      cmSizer.insertBefore(container, contentContainer);
+    }
+    const heading = container.createDiv({ cls: 'metadata-properties-heading' });
+    heading.createDiv({ cls: 'metadata-properties-title', text: 'Properties' });
+    container.createDiv({ cls: 'metadata-content' });
+    return container;
   }
 
   getMetadataContainers(view) {
@@ -452,6 +550,10 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     }
 
     for (const container of this.getMetadataContainers(view)) {
+      if (container.classList.contains('yaml-properties-synthetic')) {
+        container.remove();
+        continue;
+      }
       const isManaged = container.classList.contains('yaml-properties-managed')
         || !!container.querySelector('.yaml-properties-yaml, .yaml-properties-inline-summary')
         || !!container.querySelector('[data-yaml-properties-bound]');
@@ -513,7 +615,9 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['style', 'class']
+      // contenteditable: a read-only flip (e.g. Note Lock locking/unlocking)
+      // must swap the YAML editor between its editable and read-only forms.
+      attributeFilter: ['style', 'class', 'contenteditable']
     });
 
     this.observers.set(view, observer);
@@ -548,9 +652,26 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       event.stopImmediatePropagation();
       return true;
     };
+    // Like the heading, the remove-empty button sits in DOM territory where
+    // CodeMirror consumes pointer events before plain listeners see them —
+    // only the capture-phase document handlers below fire reliably.
+    const getRemoveButton = (event) => {
+      if (!event.target || typeof event.target.closest !== 'function') {
+        return null;
+      }
+      const button = event.target.closest('.yaml-properties-remove-empty');
+      return button && view.contentEl.contains(button) ? button : null;
+    };
     const handlers = {
       doc: view.contentEl.ownerDocument,
       click: async (event) => {
+        if (getRemoveButton(event)) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+          await this.removeEmptyFrontmatterBlock(view);
+          return;
+        }
         if (stopHeadingEvent(event)) {
           const committed = await this.commitActiveYamlEditor(view);
           if (committed) {
@@ -559,7 +680,22 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         }
       },
       mousedown: (event) => {
-        stopHeadingEvent(event);
+        if (getRemoveButton(event)) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+          return;
+        }
+        if (stopHeadingEvent(event)) {
+          return;
+        }
+        // Commit here, not on textarea blur alone: CodeMirror can call
+        // preventDefault on a mousedown in the note body, so clicking out of
+        // the YAML editor is not guaranteed to move focus or fire blur. This
+        // capture-phase handler runs before CodeMirror sees the event, making
+        // click-away commits deterministic (the blur path stays as fallback
+        // for keyboard focus changes; committing twice is idempotent).
+        this.commitEditorOnOutsidePointer(view, event);
       }
     };
 
@@ -656,6 +792,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         const key = this.getFileKey(view);
         if (key) {
           this.activeEditors.add(key);
+          this.activeYamlTextareas.set(key, textarea);
         }
         // Park the underlying editor's cursor at the document start. The
         // debounced frontmatter writes are document changes, and Obsidian
@@ -707,6 +844,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         const saved = await this.saveYamlFromEditor(view, textarea.value);
         if (saved && key) {
           this.activeEditors.delete(key);
+          this.activeYamlTextareas.delete(key);
         }
         if (saved) {
           this.scheduleRefresh(view);
@@ -718,6 +856,45 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       });
       this.renderYamlInto(readonly, frontmatterInfo.raw);
     }
+
+    // An empty `---`/`---` block is a real state, not an error: keep the
+    // editor tall enough to click into, say what it is, and offer removal.
+    yamlBlock.classList.toggle('yaml-properties-yaml-empty', !frontmatterInfo.raw);
+    if (!frontmatterInfo.raw && this.isEditableYamlMode(view)) {
+      // Clicks are handled by the capture-phase document listeners in
+      // ensureViewEventHandlers — a listener on the button itself never
+      // fires reliably inside CodeMirror's DOM.
+      yamlBlock.createEl('button', {
+        cls: 'yaml-properties-remove-empty',
+        text: 'Remove empty frontmatter'
+      });
+    }
+  }
+
+  /**
+   * Obsidian's parser when available; otherwise an exact replica of it, so
+   * older runtimes (mobile builds behind on the API) parse identically.
+   */
+  parseFrontMatterInfo(content) {
+    if (typeof obsidian.getFrontMatterInfo === 'function') {
+      return obsidian.getFrontMatterInfo(content);
+    }
+    const none = { exists: false, frontmatter: '', from: 0, to: 0, contentStart: 0 };
+    const open = /^---(\r?\n)/.exec(content);
+    if (!open) {
+      return none;
+    }
+    const from = open[0].length;
+    const close = /---(\r?\n|$)/g;
+    close.lastIndex = from;
+    let match = close.exec(content);
+    while (match && content.charAt(match.index - 1) !== '\n') {
+      match = close.exec(content);
+    }
+    if (!match) {
+      return none;
+    }
+    return { exists: true, frontmatter: content.slice(from, match.index), from, to: match.index, contentStart: close.lastIndex };
   }
 
   async getFrontmatterInfo(view) {
@@ -727,13 +904,17 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     }
 
     const content = view.editor ? view.editor.getValue() : await this.app.vault.cachedRead(file);
-    const match = content.match(/^---\n([\s\S]*?)\n(?:---|\.\.\.)\n?/);
-    if (!match) {
+    // Obsidian's own parser is the source of truth: it agrees with the
+    // metadata cache on empty blocks, \r\n endings, the `...` terminator, and
+    // a leading `---` used as a horizontal rule — a hand-rolled regex did not,
+    // and its lazy search could swallow body text up to a later `---`.
+    const info = this.parseFrontMatterInfo(content);
+    if (!info.exists) {
       return null;
     }
 
-    const raw = match[1];
-    const lines = raw.split('\n');
+    const raw = info.frontmatter.replace(/\r\n/g, '\n').replace(/\n$/, '');
+    const lines = raw ? raw.split('\n') : [];
     const propertyCount = this.countTopLevelProperties(lines);
     const previewLines = this.buildSummaryLines(lines);
 
@@ -901,9 +1082,17 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
 
   isEditableYamlMode(view) {
     const activePane = this.getActiveModePane(view);
-    return !!activePane
-      && activePane.classList.contains('markdown-source-view')
-      && activePane.classList.contains('is-live-preview');
+    if (!activePane
+      || !activePane.classList.contains('markdown-source-view')
+      || !activePane.classList.contains('is-live-preview')) {
+      return false;
+    }
+
+    // A read-only editor (e.g. a note locked by the Note Lock plugin) would
+    // silently reject every write from the YAML textarea — show the read-only
+    // YAML view instead. Detected from the DOM, not from any specific plugin.
+    const editorContent = activePane.querySelector('.cm-content');
+    return !editorContent || editorContent.getAttribute('contenteditable') !== 'false';
   }
 
   expandSourceModeFrontmatter(view, frontmatterInfo) {
@@ -917,7 +1106,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       return;
     }
 
-    const frontmatterEndLine = frontmatterInfo.raw.split('\n').length + 1;
+    const frontmatterEndLine = (frontmatterInfo.raw ? frontmatterInfo.raw.split('\n').length : 0) + 1;
     const nextFolds = foldInfo.folds.filter((fold) => !(fold.from <= 0 && fold.to >= frontmatterEndLine));
     if (nextFolds.length === foldInfo.folds.length) {
       return;
@@ -1083,9 +1272,17 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     this.clearYamlSaveTimer(fileKey);
     const timer = window.setTimeout(async () => {
       this.yamlSaveTimers.delete(fileKey);
-      if (textarea.isConnected) {
-        await this.saveYamlFromEditor(view, textarea.value);
+      if (!textarea.isConnected) {
+        return;
       }
+      // An emptied editor means "remove the whole block", and removing the
+      // block destroys this very editor while the user is still in it (with
+      // no blur event, wedging the active-editor guard). Structural removal
+      // waits for an explicit commit: blur, outside click, or heading toggle.
+      if (!textarea.value.trim()) {
+        return;
+      }
+      await this.saveYamlFromEditor(view, textarea.value, { skipVaultFallback: true });
     }, YAML_SAVE_DEBOUNCE_MS);
     this.yamlSaveTimers.set(fileKey, timer);
   }
@@ -1104,9 +1301,17 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
 
   async commitActiveYamlEditor(view) {
     const fileKey = this.getFileKey(view);
-    const textarea = this.getMetadataContainers(view)[0]
-      ?.querySelector('.yaml-properties-yaml-editor');
-    if (!textarea || !fileKey || !this.activeEditors.has(fileKey)) {
+    if (!fileKey || !this.activeEditors.has(fileKey)) {
+      return true;
+    }
+
+    const textarea = this.activeYamlTextareas.get(fileKey)
+      || this.getMetadataContainers(view)[0]?.querySelector('.yaml-properties-yaml-editor');
+    if (!textarea || !textarea.isConnected) {
+      // The editor is gone; its value can no longer be trusted as the user's
+      // intent. Release the guard so the view refreshes from the document.
+      this.activeEditors.delete(fileKey);
+      this.activeYamlTextareas.delete(fileKey);
       return true;
     }
 
@@ -1117,19 +1322,32 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     const saved = await this.saveYamlFromEditor(view, textarea.value);
     if (saved) {
       this.activeEditors.delete(fileKey);
+      this.activeYamlTextareas.delete(fileKey);
     }
     return saved;
   }
 
-  async saveYamlFromEditor(view, rawYaml) {
+  commitEditorOnOutsidePointer(view, event) {
+    const fileKey = this.getFileKey(view);
+    if (!fileKey || !this.activeEditors.has(fileKey)) {
+      return;
+    }
+    if (event.target && typeof event.target.closest === 'function'
+      && event.target.closest('.yaml-properties-yaml')) {
+      return;
+    }
+    void this.commitActiveYamlEditor(view);
+  }
+
+  async saveYamlFromEditor(view, rawYaml, options = {}) {
     const file = view.file;
     if (!file) {
       return false;
     }
 
     const currentContent = view.editor ? view.editor.getValue() : await this.app.vault.cachedRead(file);
-    const match = currentContent.match(/^---\n([\s\S]*?)\n((?:---|\.\.\.))\n?/);
-    if (!match) {
+    const info = this.parseFrontMatterInfo(currentContent);
+    if (!info.exists) {
       return false;
     }
 
@@ -1150,32 +1368,116 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       return false;
     }
 
-    if (normalizedYaml === match[1]) {
+    if (normalizedYaml === info.frontmatter.replace(/\r\n/g, '\n').replace(/\s+$/, '')) {
       return true;
     }
 
-    const delimiter = match[2];
-    const replacement = `---\n${normalizedYaml}\n${delimiter}\n`;
+    // Canonical form on every write: `---` delimiters and LF endings, so
+    // whatever odd-but-valid shape came in, what goes out parses trivially.
+    // An emptied editor removes the block instead of leaving `---`/`---`.
+    const replacement = normalizedYaml ? `---\n${normalizedYaml}\n---\n` : '';
 
-    if (view.editor) {
-      // Replace only the frontmatter block. Replacing the whole document
-      // remaps the editor selection to the end of the inserted text — the
-      // bottom of the note — and the editor scrolls it into view, yanking
-      // the page down mid-edit (most visibly on mobile, where the debounced
-      // save fires while the keyboard is up).
-      const frontmatterEnd = view.editor.offsetToPos(match[0].length);
-      // Pin the scroll position across the write: even a frontmatter-only
-      // replace can make the editor scroll its cursor into view.
-      this.withPinnedScroll(view, () => view.editor.replaceRange(replacement, { line: 0, ch: 0 }, frontmatterEnd));
-    } else {
-      await this.app.vault.process(file, (latestContent) => latestContent.replace(
-        /^---\n[\s\S]*?\n(?:---|\.\.\.)\n?/,
-        replacement
-      ));
+    const writeViaVault = () => this.app.vault.process(file, (latestContent) => {
+      const latestInfo = this.parseFrontMatterInfo(latestContent);
+      if (!latestInfo.exists) {
+        return latestContent;
+      }
+      return replacement + latestContent.slice(latestInfo.contentStart);
+    });
+
+    try {
+      if (view.editor) {
+        // Replace only the frontmatter block. Replacing the whole document
+        // remaps the editor selection to the end of the inserted text — the
+        // bottom of the note — and the editor scrolls it into view, yanking
+        // the page down mid-edit (most visibly on mobile, where the debounced
+        // save fires while the keyboard is up). contentStart is where the body
+        // begins, so read and write target the same bytes by construction.
+        const frontmatterEnd = view.editor.offsetToPos(info.contentStart);
+        // Pin the scroll position across the write: even a frontmatter-only
+        // replace can make the editor scroll its cursor into view.
+        this.withPinnedScroll(view, () => view.editor.replaceRange(replacement, { line: 0, ch: 0 }, frontmatterEnd));
+
+        // Since Obsidian 1.12, live preview silently filters editor
+        // transactions that delete or replace text in the properties region —
+        // replaceRange "succeeds" and the document is unchanged. Verify the
+        // write landed; if not, go through the vault instead. Debounced
+        // mid-typing saves skip the fallback (a disk rewrite can rebuild the
+        // widget under the user's cursor) — the commit always uses it.
+        if (!this.editorFrontmatterEquals(view, normalizedYaml)) {
+          if (options.skipVaultFallback) {
+            return false;
+          }
+          if (typeof view.save === 'function') {
+            await view.save();
+          }
+          await writeViaVault();
+        }
+      } else {
+        await writeViaVault();
+      }
+    } catch (error) {
+      // A silent failure here reads as "my edit reverted" — surface it.
+      console.error('YAML Properties: failed to write frontmatter', error);
+      new obsidian.Notice(`YAML Properties: save failed — ${error?.message || error}`);
+      return false;
     }
 
     this.scheduleRefresh(view);
     return true;
+  }
+
+  /** Whether the editor document's frontmatter now matches the YAML just written. */
+  editorFrontmatterEquals(view, normalizedYaml) {
+    const info = this.parseFrontMatterInfo(view.editor.getValue());
+    if (!normalizedYaml) {
+      return !info.exists;
+    }
+    return info.exists && info.frontmatter.replace(/\r\n/g, '\n').replace(/\s+$/, '') === normalizedYaml;
+  }
+
+  /** Deletes a frontmatter block that holds no properties; a no-op otherwise. */
+  async removeEmptyFrontmatterBlock(view) {
+    const file = view.file;
+    if (!file) {
+      return;
+    }
+
+    const removeViaVault = () => this.app.vault.process(file, (latestContent) => {
+      const latestInfo = this.parseFrontMatterInfo(latestContent);
+      if (!latestInfo.exists || latestInfo.frontmatter.trim()) {
+        return latestContent;
+      }
+      return latestContent.slice(latestInfo.contentStart);
+    });
+
+    try {
+      if (view.editor) {
+        const content = view.editor.getValue();
+        const info = this.parseFrontMatterInfo(content);
+        if (!info.exists || info.frontmatter.trim()) {
+          return;
+        }
+        this.withPinnedScroll(view, () => view.editor.replaceRange('', { line: 0, ch: 0 }, view.editor.offsetToPos(info.contentStart)));
+        // Same Obsidian 1.12 caveat as saveYamlFromEditor: live preview can
+        // silently drop deletions in the properties region — verify, then
+        // fall back to the vault write.
+        if (this.parseFrontMatterInfo(view.editor.getValue()).exists) {
+          if (typeof view.save === 'function') {
+            await view.save();
+          }
+          await removeViaVault();
+        }
+      } else {
+        await removeViaVault();
+      }
+    } catch (error) {
+      console.error('YAML Properties: failed to remove empty frontmatter', error);
+      new obsidian.Notice(`YAML Properties: remove failed — ${error?.message || error}`);
+      return;
+    }
+
+    this.scheduleRefresh(view);
   }
 }
 

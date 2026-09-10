@@ -1,0 +1,206 @@
+{
+  "source": "Shared trading theme catalog, Ichimoku family",
+  "sourceSha256": "f4b61d368f7e6ff63d0615c1a703ad2ed15e2fc088905de68dbd7dc1d8e00dec",
+  "order": [
+    "Semaphore",
+    "Aizome",
+    "ATAS Directional",
+    "Japanese Indigo",
+    "Kikyō",
+    "Kinran",
+    "Material",
+    "Murasaki",
+    "Shippō",
+    "Shōchikubai",
+    "Sumi",
+    "ThinkOrSwim"
+  ],
+  "aliases": {
+    "Monochromatic": "Japanese Indigo",
+    "Directional": "ATAS Directional",
+    "Traditional": "Material",
+    "Colored": "Semaphore"
+  },
+  "themes": {
+    "Semaphore": {
+      "className": "yaml-properties-theme-semaphore",
+      "modes": {
+        "dark": {
+          "textBullish": "#43A047FF",
+          "textBearish": "#F44336FF",
+          "text": "#FFFFFFF0"
+        },
+        "light": {
+          "textBullish": "#37843BFF",
+          "textBearish": "#D73B30FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "Aizome": {
+      "className": "yaml-properties-theme-aizome",
+      "modes": {
+        "dark": {
+          "textBullish": "#33A6B8FF",
+          "textBearish": "#5388A3FF",
+          "text": "#FFFFFFF0"
+        },
+        "light": {
+          "textBullish": "#28808FFF",
+          "textBearish": "#165E83FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "ATAS Directional": {
+      "className": "yaml-properties-theme-atas-directional",
+      "modes": {
+        "dark": {
+          "textBullish": "#00A0FFFF",
+          "textBearish": "#FF3A3AFF",
+          "text": "#FFFFFFF0"
+        },
+        "light": {
+          "textBullish": "#007BC5FF",
+          "textBearish": "#DB3232FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "Japanese Indigo": {
+      "className": "yaml-properties-theme-japanese-indigo",
+      "modes": {
+        "dark": {
+          "textBullish": "#FCFAF2FF",
+          "textBearish": "#5388A3FF",
+          "text": "#EBEBEBFF"
+        },
+        "light": {
+          "textBullish": "#767672FF",
+          "textBearish": "#165E83FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "Kikyō": {
+      "className": "yaml-properties-theme-kikyo",
+      "modes": {
+        "dark": {
+          "textBullish": "#7B7AB6FF",
+          "textBearish": "#CA7A2CFF",
+          "text": "#FFFFFFF0"
+        },
+        "light": {
+          "textBullish": "#5654A2FF",
+          "textBearish": "#A76525FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "Kinran": {
+      "className": "yaml-properties-theme-kinran",
+      "modes": {
+        "dark": {
+          "textBullish": "#F8B500FF",
+          "textBearish": "#6184ABFF",
+          "text": "#FFFFFFF0"
+        },
+        "light": {
+          "textBullish": "#976D00FF",
+          "textBearish": "#164A84FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "Material": {
+      "className": "yaml-properties-theme-material",
+      "modes": {
+        "dark": {
+          "textBullish": "#43A047FF",
+          "textBearish": "#E74541FF",
+          "text": "#ECEFF1F0"
+        },
+        "light": {
+          "textBullish": "#37843BFF",
+          "textBearish": "#DC3733FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "Murasaki": {
+      "className": "yaml-properties-theme-murasaki",
+      "modes": {
+        "dark": {
+          "textBullish": "#8B81C3FF",
+          "textBearish": "#9075ADFF",
+          "text": "#FFFFFFF0"
+        },
+        "light": {
+          "textBullish": "#766DA5FF",
+          "textBearish": "#745399FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "Shippō": {
+      "className": "yaml-properties-theme-shippo",
+      "modes": {
+        "dark": {
+          "textBullish": "#4286C4FF",
+          "textBearish": "#F17C67FF",
+          "text": "#FFFFFFF0"
+        },
+        "light": {
+          "textBullish": "#005CAFFF",
+          "textBearish": "#B25C4CFF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "Shōchikubai": {
+      "className": "yaml-properties-theme-shochikubai",
+      "modes": {
+        "dark": {
+          "textBullish": "#839B5CFF",
+          "textBearish": "#DB4D6DFF",
+          "text": "#FFFFFFF0"
+        },
+        "light": {
+          "textBullish": "#6A7D4AFF",
+          "textBearish": "#C94764FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "Sumi": {
+      "className": "yaml-properties-theme-sumi",
+      "modes": {
+        "dark": {
+          "textBullish": "#BDC0BAFF",
+          "textBearish": "#838282FF",
+          "text": "#FFFFFFF0"
+        },
+        "light": {
+          "textBullish": "#767774FF",
+          "textBearish": "#727171FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    },
+    "ThinkOrSwim": {
+      "className": "yaml-properties-theme-think-or-swim",
+      "modes": {
+        "dark": {
+          "textBullish": "#FBC02DFF",
+          "textBearish": "#F53A00FF",
+          "text": "#FCFAF2F0"
+        },
+        "light": {
+          "textBullish": "#93701AFF",
+          "textBearish": "#DC3400FF",
+          "text": "#1E1E1EF0"
+        }
+      }
+    }
+  }
+}
