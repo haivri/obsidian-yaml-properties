@@ -119,11 +119,11 @@ npm run dev
 
 Run `npm run build` for a production build and `npm test` for regression checks.
 
-Settings are grouped into **Display**, **Layout**, and **Colors**. The twelve shared
-trading palettes use the Ichimoku catalog names: Semaphore, Aizome, ATAS Directional,
+Settings are grouped into **Display**, **Layout**, and **Colors**. The twelve palettes
+adapted from the shared theme catalog are: Semaphore, Aizome, ATAS Directional,
 Japanese Indigo, Kikyō, Kinran, Material, Murasaki, Shippō, Shōchikubai, Sumi, and
-ThinkOrSwim. Presets follow Obsidian’s light/dark appearance automatically. Custom
-colors remain editable; Ukiyo-e, Nihonga, and Momiji remain available as legacy palettes.
+Gold & Vermilion. Presets follow Obsidian’s light/dark appearance automatically. Custom
+colors remain editable; Ukiyo-e, Nihonga, and Momiji are also available.
 
 `src/theme-catalog.json` records the shared palette snapshot and its source hash.
 Run `node scripts/sync-themes.cjs <canonical-themes.json>` to refresh it, or

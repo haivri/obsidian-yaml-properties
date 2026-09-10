@@ -31,8 +31,9 @@ const COLOR_THEME_CLASSES = {
   ...Object.fromEntries(Object.entries(themeCatalog.themes).map(([name, theme]) => [name, theme.className]))
 };
 
-const COLOR_THEME_OPTIONS = ['Default', ...themeCatalog.order, 'Custom', 'Ukiyo-e', 'Nihonga', 'Momiji'];
-const LEGACY_THEMES = new Set(['Ukiyo-e', 'Nihonga', 'Momiji']);
+const COLOR_THEME_OPTIONS = ['Default', ...themeCatalog.order, 'Ukiyo-e', 'Nihonga', 'Momiji', 'Custom'];
+// Keep catalog keys stable so existing selections and generated palettes still match.
+const COLOR_THEME_LABELS = { ThinkOrSwim: 'Gold & Vermilion' };
 
 const CUSTOM_COLOR_ROLES = [
   { key: 'string', name: 'Strings', desc: 'Plain and quoted text values — most of the frontmatter.' },
@@ -133,10 +134,10 @@ export class YamlPropertiesSettingTab extends obsidian.PluginSettingTab {
 
     new obsidian.Setting(containerEl)
       .setName('Color theme')
-      .setDesc('Shared trading palettes for YAML values. Presets automatically follow Obsidian’s light or dark appearance, including when it changes. Keys and backgrounds follow your Obsidian theme.')
+      .setDesc('Color palettes for YAML values. Presets automatically follow Obsidian’s light or dark appearance, including when it changes. Keys and backgrounds follow your Obsidian theme.')
       .addDropdown((dropdown) => {
         for (const option of COLOR_THEME_OPTIONS) {
-          dropdown.addOption(option, option === 'Default' ? 'Default' : LEGACY_THEMES.has(option) ? `${option} (legacy)` : option);
+          dropdown.addOption(option, COLOR_THEME_LABELS[option] || option);
         }
         dropdown
           .setValue(COLOR_THEME_OPTIONS.includes(this.plugin.settings.colorTheme)

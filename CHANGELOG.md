@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.11 - 2026-09-10
+
+- Remove the legacy labels from Ukiyo-e, Nihonga, and Momiji, keeping all three palettes available.
+- Display ThinkOrSwim as Gold & Vermilion in Obsidian while preserving existing selections and colors.
+- Keep Custom at the end of the palette list.
+
 ## 1.0.10 - 2026-09-10
 
 - Organize settings into Display, Layout, Colors, and a conditional Custom colors section.

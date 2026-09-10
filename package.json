@@ -1,6 +1,6 @@
 {
   "name": "yaml-properties",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Edit Obsidian properties as readable, syntax-highlighted YAML frontmatter and collapse them when not needed.",
   "main": "main.js",
   "scripts": {

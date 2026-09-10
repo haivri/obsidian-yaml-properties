@@ -32,14 +32,17 @@ function fixture(theme = 'Default') {
   tab.containerEl = { empty() { rows.length = 0; } };
   return { tab, rows, plugin, classes, colors };
 }
-test('settings have clear sections and all canonical theme names', () => {
-  const f = fixture(); f.tab.display();
+test('settings keep palette keys stable with friendly display names', () => {
+  const f = fixture('ThinkOrSwim'); f.tab.display();
   assert.deepEqual(f.rows.filter(x => x.heading).map(x => x.name), ['Display', 'Layout', 'Colors']);
   const dropdown = f.rows.find(x => x.dropdown).dropdown;
-  assert.equal(dropdown.value, 'Default');
+  assert.equal(dropdown.value, 'ThinkOrSwim');
+  f.plugin.applyColorTheme();
+  assert.deepEqual([...f.classes], [catalog.themes.ThinkOrSwim.className]);
   assert.equal(catalog.order.length, 12);
-  for (const name of catalog.order) assert.equal(dropdown.options[name], name);
-  assert.equal(dropdown.options['Ukiyo-e'], 'Ukiyo-e (legacy)');
+  for (const name of catalog.order) assert.equal(dropdown.options[name], name === 'ThinkOrSwim' ? 'Gold & Vermilion' : name);
+  for (const name of ['Ukiyo-e', 'Nihonga', 'Momiji']) assert.equal(dropdown.options[name], name);
+  assert.equal(Object.keys(dropdown.options).at(-1), 'Custom');
 });
 test('selecting Custom displays the color section; presets preserve the custom values', async () => {
   const f = fixture(); f.tab.display();
