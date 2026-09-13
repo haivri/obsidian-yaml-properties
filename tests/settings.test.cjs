@@ -22,7 +22,7 @@ function fixture(theme = 'Default') {
   const module = { exports: {} };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../main.js'), 'utf8'), {
     module, exports: module.exports,
-    require: () => ({ Plugin: class {}, PluginSettingTab: class {}, Setting }),
+    require: name => name === 'obsidian' ? ({ Plugin: class {}, PluginSettingTab: class {}, Setting }) : require(name),
     document: { body: { classList: { toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); }, remove(name) { classes.delete(name); } }, style: { setProperty(name, value) { colors.set(name, value); }, removeProperty(name) { colors.delete(name); } } } },
   });
   const plugin = new module.exports.default();

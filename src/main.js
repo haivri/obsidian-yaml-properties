@@ -1,5 +1,7 @@
 import * as obsidian from 'obsidian';
 import themeCatalog from './theme-catalog.json';
+import { templateFrontmatter, highlightRanges } from './templates';
+import { templateSourceExtension } from './source-extension';
 
 const DEFAULT_SETTINGS = {
   collapsedByDefault: true,
@@ -195,6 +197,16 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     this.settings.customColors = Object.assign({}, DEFAULT_SETTINGS.customColors, stored?.customColors);
     this.settings.colorTheme = themeCatalog.aliases[this.settings.colorTheme] || this.settings.colorTheme;
     this.applyColorTheme();
+    this.registerEditorExtension(templateSourceExtension(obsidian.editorLivePreviewField));
+    this.registerMarkdownPostProcessor((element, context) => {
+      const section = context.getSectionInfo(element);
+      const info = section ? templateFrontmatter(section.text) : null;
+      const firstLine = info?.exists ? section.text.slice(0, info.blockStart).split('\n').length - 1 : -1;
+      const lastLine = info?.exists ? section.text.slice(0, info.to).split('\n').length - 1 : -1;
+      // Hide only complete frontmatter sections, never a section extending into body text.
+      element.classList.toggle('yaml-properties-template-duplicate', !!info?.exists
+        && section.lineStart >= firstLine && section.lineEnd <= lastLine);
+    });
     this.refreshTimers = new Map();
     this.observers = new Map();
     this.viewEventHandlers = new Map();
@@ -219,6 +231,8 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       // frontmatterPosition distinguishes an empty `---`/`---` block from no
       // block at all — cache.frontmatter is empty for both.
       const snapshot = JSON.stringify({
+        // Invalid/template YAML may have no parsed metadata; raw edits still matter.
+        template: templateFrontmatter(data)?.frontmatter ?? null,
         frontmatter: cache?.frontmatter ?? null,
         hasBlock: !!cache?.frontmatterPosition
       });
@@ -446,11 +460,11 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         }
       }
       containers = stockContainers;
-    } else if (containers.length === 0 && !frontmatterInfo.raw) {
+    } else if (containers.length === 0 && (!frontmatterInfo.raw || frontmatterInfo.isTemplate)) {
       // Obsidian renders no properties widget for an empty `---`/`---` block,
       // so there is nothing to decorate — build our own container to host the
-      // empty-state editor and the remove button. Non-empty frontmatter with
-      // no container yet is a transient render state the observer resolves.
+      // empty-state editor and the remove button. Templates may also lack a
+      // native container because their unexpanded frontmatter isn't valid YAML.
       const synthetic = this.createSyntheticContainer(view);
       containers = synthetic ? [synthetic] : [];
     }
@@ -458,6 +472,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       return;
     }
 
+    view.contentEl.classList.toggle('yaml-properties-template-reading', !!frontmatterInfo.isTemplate);
     for (const container of containers) {
       this.renderMetadataContainer(view, container, frontmatterInfo);
     }
@@ -465,9 +480,17 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
 
   createSyntheticContainer(view) {
     const activePane = this.getActiveModePane(view);
-    if (!activePane || !activePane.classList.contains('markdown-source-view')) {
-      return null;
+    if (!activePane) return null;
+    if (activePane.classList.contains('markdown-reading-view')) {
+      const header = activePane.querySelector('.markdown-preview-sizer > .mod-header');
+      if (!header) return null;
+      const container = header.createDiv({ cls: ['metadata-container', 'yaml-properties-synthetic'] });
+      const heading = container.createDiv({ cls: 'metadata-properties-heading' });
+      heading.createDiv({ cls: 'metadata-properties-title', text: 'Properties' });
+      container.createDiv({ cls: 'metadata-content' });
+      return container;
     }
+    if (!activePane.classList.contains('markdown-source-view')) return null;
 
     const cmSizer = activePane.querySelector(':scope > .cm-editor > .cm-scroller > .cm-sizer');
     if (!cmSizer) {
@@ -541,6 +564,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
   }
 
   teardownView(view, options = {}) {
+    view.contentEl.classList.remove('yaml-properties-template-reading');
     if (!options.preserveObserver) {
       this.sourceModeFiles.delete(view);
       const observer = this.observers.get(view);
@@ -569,7 +593,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         continue;
       }
 
-      container.classList.remove('yaml-properties-managed', 'is-collapsed');
+      container.classList.remove('yaml-properties-managed', 'yaml-properties-template', 'is-collapsed');
 
       const heading = container.querySelector('.metadata-properties-heading');
       if (heading) {
@@ -724,6 +748,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     }
 
     container.classList.add('yaml-properties-managed');
+    container.classList.toggle('yaml-properties-template', !!frontmatterInfo.isTemplate);
     container.classList.toggle('frontmatter-hide-in-reading', !!this.settings.hideInReadingMode);
 
     const collapsed = this.getRenderedCollapsedState(view);
@@ -743,7 +768,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       summary = container.createDiv({ cls: 'yaml-properties-inline-summary' });
       heading.insertAdjacentElement('beforeend', summary);
     }
-    summary.textContent = collapsed
+    summary.textContent = frontmatterInfo.isTemplate ? 'Template' : collapsed
       ? `${frontmatterInfo.propertyCount} props${frontmatterInfo.summary ? `  •  ${frontmatterInfo.summary}` : ''}`
       : `${frontmatterInfo.propertyCount} props`;
 
@@ -880,12 +905,14 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
   }
 
   /**
-   * Obsidian's parser when available; otherwise an exact replica of it, so
-   * older runtimes (mobile builds behind on the API) parse identically.
+   * Template boundaries are scanned without parsing their YAML. Ordinary
+   * notes retain Obsidian's parser and the existing older-runtime fallback.
    */
   parseFrontMatterInfo(content) {
+    const template = templateFrontmatter(content);
+    if (template) return template;
     if (typeof obsidian.getFrontMatterInfo === 'function') {
-      return obsidian.getFrontMatterInfo(content);
+      return { ...obsidian.getFrontMatterInfo(content), blockStart: 0 };
     }
     const none = { exists: false, frontmatter: '', from: 0, to: 0, contentStart: 0 };
     const open = /^---(\r?\n)/.exec(content);
@@ -902,7 +929,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     if (!match) {
       return none;
     }
-    return { exists: true, frontmatter: content.slice(from, match.index), from, to: match.index, contentStart: close.lastIndex };
+    return { exists: true, blockStart: 0, frontmatter: content.slice(from, match.index), from, to: match.index, contentStart: close.lastIndex };
   }
 
   async getFrontmatterInfo(view) {
@@ -912,10 +939,8 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     }
 
     const content = view.editor ? view.editor.getValue() : await this.app.vault.cachedRead(file);
-    // Obsidian's own parser is the source of truth: it agrees with the
-    // metadata cache on empty blocks, \r\n endings, the `...` terminator, and
-    // a leading `---` used as a horizontal rule — a hand-rolled regex did not,
-    // and its lazy search could swallow body text up to a later `---`.
+    // Resolve boundaries independently of the metadata cache: unexpanded
+    // templates may have no parsed properties at all.
     const info = this.parseFrontMatterInfo(content);
     if (!info.exists) {
       return null;
@@ -923,11 +948,13 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
 
     const raw = info.frontmatter.replace(/\r\n/g, '\n').replace(/\n$/, '');
     const lines = raw ? raw.split('\n') : [];
-    const propertyCount = this.countTopLevelProperties(lines);
-    const previewLines = this.buildSummaryLines(lines);
+    const propertyCount = info.isTemplate ? 0 : this.countTopLevelProperties(lines);
+    const previewLines = info.isTemplate ? [] : this.buildSummaryLines(lines);
 
     return {
       raw,
+      isTemplate: !!info.isTemplate,
+      endLine: content.slice(0, info.to).split('\n').length - 1,
       propertyCount,
       summary: previewLines.join('  •  ')
     };
@@ -993,92 +1020,19 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
   }
 
   renderHighlightedYaml(source) {
-    return source
-      .split('\n')
-      .map((line) => this.highlightYamlLine(line))
-      .join('\n');
+    let cursor = 0;
+    let html = '';
+    for (const token of highlightRanges(source)) {
+      html += this.escapeHtml(source.slice(cursor, token.from));
+      html += `<span class="${token.className}">${this.escapeHtml(source.slice(token.from, token.to))}</span>`;
+      cursor = token.to;
+    }
+    return html + this.escapeHtml(source.slice(cursor));
   }
 
   renderYamlInto(container, source) {
     container.empty();
     container.appendChild(obsidian.sanitizeHTMLToDom(this.renderHighlightedYaml(source)));
-  }
-
-  highlightYamlLine(line) {
-    const escaped = this.escapeHtml(line);
-    if (!line.trim()) {
-      return '';
-    }
-
-    const commentIndex = this.findCommentStart(line);
-    const content = commentIndex >= 0 ? line.slice(0, commentIndex) : line;
-    const comment = commentIndex >= 0 ? line.slice(commentIndex) : '';
-
-    let highlightedContent = this.highlightYamlContent(content);
-    if (comment) {
-      highlightedContent += `<span class="yaml-comment">${this.escapeHtml(comment)}</span>`;
-    }
-    return highlightedContent || escaped;
-  }
-
-  highlightYamlContent(content) {
-    const listMatch = content.match(/^(\s*-\s+)(.*)$/);
-    if (listMatch) {
-      return `<span class="yaml-punctuation">${this.escapeHtml(listMatch[1])}</span>${this.highlightYamlValue(listMatch[2])}`;
-    }
-
-    const pairMatch = content.match(/^(\s*)([^:#][^:]*)(:\s*)(.*)$/);
-    if (pairMatch) {
-      const [, indent, key, separator, value] = pairMatch;
-      return `${this.escapeHtml(indent)}<span class="yaml-key">${this.escapeHtml(key)}</span><span class="yaml-punctuation">${this.escapeHtml(separator)}</span>${this.highlightYamlValue(value)}`;
-    }
-
-    return this.highlightYamlValue(content);
-  }
-
-  highlightYamlValue(value) {
-    const trimmed = value.trim();
-    const leading = value.slice(0, value.indexOf(trimmed));
-    const leadingEscaped = this.escapeHtml(leading);
-    if (!trimmed) {
-      return leadingEscaped;
-    }
-
-    if (/^(true|false|yes|no|on|off)$/i.test(trimmed)) {
-      return `${leadingEscaped}<span class="yaml-boolean">${this.escapeHtml(trimmed)}</span>`;
-    }
-    if (/^(null|~)$/i.test(trimmed)) {
-      return `${leadingEscaped}<span class="yaml-null">${this.escapeHtml(trimmed)}</span>`;
-    }
-    if (/^[+-]?\d+(\.\d+)?$/.test(trimmed)) {
-      return `${leadingEscaped}<span class="yaml-number">${this.escapeHtml(trimmed)}</span>`;
-    }
-    if (/^#\S+/.test(trimmed)) {
-      return `${leadingEscaped}<span class="yaml-tag">${this.escapeHtml(trimmed)}</span>`;
-    }
-    if (/^(https?:\/\/|obsidian:\/\/|\[\[)/.test(trimmed)) {
-      return `${leadingEscaped}<span class="yaml-link">${this.escapeHtml(trimmed)}</span>`;
-    }
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith('\'') && trimmed.endsWith('\''))) {
-      return `${leadingEscaped}<span class="yaml-string">${this.escapeHtml(trimmed)}</span>`;
-    }
-    return `${leadingEscaped}<span class="yaml-string">${this.escapeHtml(trimmed)}</span>`;
-  }
-
-  findCommentStart(line) {
-    let inSingle = false;
-    let inDouble = false;
-    for (let i = 0; i < line.length; i += 1) {
-      const char = line[i];
-      if (char === '\'' && !inDouble) {
-        inSingle = !inSingle;
-      } else if (char === '"' && !inSingle) {
-        inDouble = !inDouble;
-      } else if (char === '#' && !inSingle && !inDouble) {
-        return i;
-      }
-    }
-    return -1;
   }
 
   escapeHtml(value) {
@@ -1114,7 +1068,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       return;
     }
 
-    const frontmatterEndLine = (frontmatterInfo.raw ? frontmatterInfo.raw.split('\n').length : 0) + 1;
+    const frontmatterEndLine = frontmatterInfo.endLine;
     const nextFolds = foldInfo.folds.filter((fold) => !(fold.from <= 0 && fold.to >= frontmatterEndLine));
     if (nextFolds.length === foldInfo.folds.length) {
       return;
@@ -1359,9 +1313,19 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       return false;
     }
 
-    const normalizedYaml = rawYaml.replace(/\r\n/g, '\n').replace(/\s+$/, '');
+    const isTemplate = info.isTemplate || rawYaml.includes('<%');
+    // The textarea represents content without the one newline before the closing delimiter.
+    const normalizedYaml = isTemplate ? rawYaml.replace(/\r\n/g, '\n') : rawYaml.replace(/\r\n/g, '\n').replace(/\s+$/, '');
+    const replacement = this.frontmatterReplacement(currentContent, info, normalizedYaml, isTemplate);
     try {
-      if (normalizedYaml.trim()) {
+      if (isTemplate && normalizedYaml.trim()) {
+        const candidate = currentContent.slice(0, info.blockStart) + replacement + currentContent.slice(info.contentStart);
+        const next = this.parseFrontMatterInfo(candidate);
+        if (!next.exists || next.blockStart !== info.blockStart || next.contentStart !== info.blockStart + replacement.length) {
+          throw new Error('Cannot locate the end of this template safely. Finish its command or edit it in Source mode.');
+        }
+      }
+      if (!isTemplate && normalizedYaml.trim()) {
         const parsed = obsidian.parseYaml(normalizedYaml);
         if (parsed !== null && (typeof parsed !== 'object' || Array.isArray(parsed))) {
           throw new Error('Frontmatter must be a YAML mapping.');
@@ -1376,21 +1340,18 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       return false;
     }
 
-    if (normalizedYaml === info.frontmatter.replace(/\r\n/g, '\n').replace(/\s+$/, '')) {
+    if (normalizedYaml === this.editableFrontmatter(info, isTemplate)) {
       return true;
     }
-
-    // Canonical form on every write: `---` delimiters and LF endings, so
-    // whatever odd-but-valid shape came in, what goes out parses trivially.
-    // An emptied editor removes the block instead of leaving `---`/`---`.
-    const replacement = normalizedYaml ? `---\n${normalizedYaml}\n---\n` : '';
 
     const writeViaVault = () => this.app.vault.process(file, (latestContent) => {
       const latestInfo = this.parseFrontMatterInfo(latestContent);
       if (!latestInfo.exists) {
         return latestContent;
       }
-      return replacement + latestContent.slice(latestInfo.contentStart);
+      return latestContent.slice(0, latestInfo.blockStart)
+        + this.frontmatterReplacement(latestContent, latestInfo, normalizedYaml, isTemplate)
+        + latestContent.slice(latestInfo.contentStart);
     });
 
     try {
@@ -1404,7 +1365,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         const frontmatterEnd = view.editor.offsetToPos(info.contentStart);
         // Pin the scroll position across the write: even a frontmatter-only
         // replace can make the editor scroll its cursor into view.
-        this.withPinnedScroll(view, () => view.editor.replaceRange(replacement, { line: 0, ch: 0 }, frontmatterEnd));
+        this.withPinnedScroll(view, () => view.editor.replaceRange(replacement, view.editor.offsetToPos(info.blockStart), frontmatterEnd));
 
         // Since Obsidian 1.12, live preview silently filters editor
         // transactions that delete or replace text in the properties region —
@@ -1412,7 +1373,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         // write landed; if not, go through the vault instead. Debounced
         // mid-typing saves skip the fallback (a disk rewrite can rebuild the
         // widget under the user's cursor) — the commit always uses it.
-        if (!this.editorFrontmatterEquals(view, normalizedYaml)) {
+        if (!this.editorFrontmatterEquals(view, normalizedYaml, isTemplate)) {
           if (options.skipVaultFallback) {
             return false;
           }
@@ -1435,13 +1396,27 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     return true;
   }
 
+  editableFrontmatter(info, isTemplate) {
+    const raw = info.frontmatter.replace(/\r\n/g, '\n');
+    return isTemplate ? raw.replace(/\n$/, '') : raw.replace(/\s+$/, '');
+  }
+
+  frontmatterReplacement(content, info, raw, isTemplate) {
+    if (!raw.trim()) return '';
+    if (!isTemplate) return `---\n${raw}\n---\n`;
+    const opening = content.slice(info.blockStart, info.from);
+    const closing = content.slice(info.to, info.contentStart);
+    const eol = opening.endsWith('\r\n') ? '\r\n' : '\n';
+    return opening + raw.replace(/\n/g, eol) + eol + closing;
+  }
+
   /** Whether the editor document's frontmatter now matches the YAML just written. */
-  editorFrontmatterEquals(view, normalizedYaml) {
+  editorFrontmatterEquals(view, normalizedYaml, isTemplate = false) {
     const info = this.parseFrontMatterInfo(view.editor.getValue());
     if (!normalizedYaml) {
       return !info.exists;
     }
-    return info.exists && info.frontmatter.replace(/\r\n/g, '\n').replace(/\s+$/, '') === normalizedYaml;
+    return info.exists && this.editableFrontmatter(info, isTemplate) === normalizedYaml;
   }
 
   /** Deletes a frontmatter block that holds no properties; a no-op otherwise. */
@@ -1456,7 +1431,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       if (!latestInfo.exists || latestInfo.frontmatter.trim()) {
         return latestContent;
       }
-      return latestContent.slice(latestInfo.contentStart);
+      return latestContent.slice(0, latestInfo.blockStart) + latestContent.slice(latestInfo.contentStart);
     });
 
     try {
@@ -1466,7 +1441,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         if (!info.exists || info.frontmatter.trim()) {
           return;
         }
-        this.withPinnedScroll(view, () => view.editor.replaceRange('', { line: 0, ch: 0 }, view.editor.offsetToPos(info.contentStart)));
+        this.withPinnedScroll(view, () => view.editor.replaceRange('', view.editor.offsetToPos(info.blockStart), view.editor.offsetToPos(info.contentStart)));
         // Same Obsidian 1.12 caveat as saveYamlFromEditor: live preview can
         // silently drop deletions in the properties region — verify, then
         // fall back to the vault write.

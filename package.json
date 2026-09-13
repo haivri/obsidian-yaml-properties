@@ -1,12 +1,12 @@
 {
   "name": "yaml-properties",
-  "version": "1.0.12",
+  "version": "1.0.14",
   "description": "Edit Obsidian properties as readable, syntax-highlighted YAML frontmatter and collapse them when not needed.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
-    "lint": "eslint src/main.js",
+    "lint": "eslint 'src/**/*.js'",
     "version": "node version-bump.mjs && git add manifest.json versions.json",
     "test": "node scripts/sync-themes.cjs --check && npm run build && node --test tests/*.test.cjs"
   },
@@ -28,5 +28,9 @@
     "globals": "^17.6.0",
     "obsidian": "1.13.1",
     "js-yaml": "^4.3.2"
+  },
+  "dependencies": {
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.38.6"
   }
 }

@@ -167,6 +167,22 @@ body.theme-light.yaml-properties-theme-momiji {
   padding: 0.2rem 0.3rem;
 }
 
+/* Unexpanded templates have zero cached properties and may be marked mod-error.
+   Own their visibility without changing Obsidian's error state or inline styles,
+   so native behavior returns when the template becomes ordinary YAML or we unload. */
+.metadata-container.yaml-properties-managed.yaml-properties-template {
+  display: block;
+}
+
+.metadata-container.yaml-properties-managed.yaml-properties-template .metadata-properties-heading {
+  /* Obsidian puts display:none inline on this heading for invalid YAML. */
+  display: flex !important;
+}
+
+.metadata-container.yaml-properties-managed.yaml-properties-template .metadata-error-container {
+  display: none;
+}
+
 .metadata-container.yaml-properties-managed.is-collapsed {
   border-color: transparent;
   background: transparent;
@@ -378,7 +394,7 @@ body.theme-light.yaml-properties-theme-momiji {
 }
 
 /* Bundled source-mode highlighting; controlled by the plugin setting. */
-.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:has(.cm-hmd-frontmatter) {
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:is(:has(.cm-hmd-frontmatter), .yaml-properties-template-line) {
   background: var(--yaml-properties-background);
   border-left: 3px solid var(--yaml-properties-rail);
   padding-inline: 0.85rem 0.7rem;
@@ -390,7 +406,7 @@ body.theme-light.yaml-properties-theme-momiji {
   transition: background-color 100ms ease, border-color 100ms ease;
 }
 
-.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line.cm-active:has(.cm-hmd-frontmatter) {
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line.cm-active:is(:has(.cm-hmd-frontmatter), .yaml-properties-template-line) {
   background: linear-gradient(90deg, var(--yaml-properties-list-stripe) 0, transparent 2.5rem), var(--yaml-properties-background-active);
   border-left-color: var(--yaml-properties-rail-active);
 }
@@ -473,7 +489,7 @@ body.theme-light.yaml-properties-theme-momiji {
   opacity: 0.84;
 }
 
-.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:has(.cm-hmd-frontmatter) .cm-indent {
+.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:is(:has(.cm-hmd-frontmatter), .yaml-properties-template-line) .cm-indent {
   border-left: 1px solid var(--yaml-properties-indent);
 }
 
@@ -491,15 +507,51 @@ body.theme-light.yaml-properties-theme-momiji {
 .yaml-properties-compact .metadata-container.yaml-properties-managed .yaml-properties-yaml-readonly,
 .yaml-properties-compact .metadata-container.yaml-properties-managed .yaml-properties-yaml-preview,
 .yaml-properties-compact .metadata-container.yaml-properties-managed .yaml-properties-yaml-editor,
-.yaml-properties-compact.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:has(.cm-hmd-frontmatter) {
+.yaml-properties-compact.yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:is(:has(.cm-hmd-frontmatter), .yaml-properties-template-line) {
   font-size: 0.86em;
   line-height: 1.5;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:has(.cm-hmd-frontmatter) {
+  .yaml-properties-style-source .markdown-source-view.mod-cm6 .cm-line:is(:has(.cm-hmd-frontmatter), .yaml-properties-template-line) {
     transition: none;
   }
+}
+
+/* Template ranges override native error/JavaScript colors only in our styled block.
+   Reuse existing palette roles; no additional theme or settings surface. */
+.yaml-properties-style-source .yaml-properties-template-token,
+.yaml-properties-style-source .yaml-properties-template-token * {
+  color: var(--yaml-properties-token-color, var(--text-normal)) !important;
+  font-weight: 500 !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  font-style: normal !important;
+  opacity: 1 !important;
+  text-decoration: none !important;
+}
+.yaml-properties-style-source .yaml-properties-template-token.yaml-key { --yaml-properties-token-color: var(--yaml-properties-key); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-string { --yaml-properties-token-color: var(--yaml-properties-string); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-number { --yaml-properties-token-color: var(--yaml-properties-number); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-boolean { --yaml-properties-token-color: var(--yaml-properties-boolean); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-null { --yaml-properties-token-color: var(--yaml-properties-null); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-link { --yaml-properties-token-color: var(--yaml-properties-link); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-tag { --yaml-properties-token-color: var(--yaml-properties-tag); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-comment { --yaml-properties-token-color: var(--yaml-properties-comment); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-punctuation { --yaml-properties-token-color: var(--yaml-properties-punctuation); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-template-code { --yaml-properties-token-color: var(--text-normal); }
+.yaml-properties-style-source .yaml-properties-template-token.yaml-template-delimiter { --yaml-properties-token-color: var(--text-muted); }
+.yaml-properties-yaml .yaml-template-code {
+  color: var(--text-normal);
+  font-weight: 500;
+}
+.yaml-properties-yaml .yaml-template-delimiter {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 /* Empty `---`/`---` blocks: keep the editor tall enough to click into and
@@ -781,3 +833,8 @@ body.theme-light.yaml-properties-theme-think-or-swim {
   --yaml-properties-tag: #DC3400FF;
 }
 /* END SHARED THEME CATALOG */
+
+/* Reading sections stay intact in the DOM and reappear when the plugin is disabled. */
+.yaml-properties-template-reading .markdown-reading-view .yaml-properties-template-duplicate {
+  display: none;
+}

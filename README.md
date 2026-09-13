@@ -66,6 +66,23 @@ Use the command **YAML Properties: Toggle frontmatter** to toggle the active not
 - **Compact YAML** — Use smaller type and tighter line spacing.
 - **Wrap YAML** — Wrap long YAML lines in Live Preview and reading mode. It is off by default so long lines use horizontal scrolling.
 
+## Templater support
+
+Frontmatter can contain inline or multiline Templater commands, including setup
+commands before its opening `---`. Source mode and the YAML panel show template
+code in a steady text color with quieter delimiters. The collapsed summary says
+**Template** instead of counting script lines as properties.
+
+The panel saves template text freely, including unfinished commands. It does not
+execute scripts or validate the YAML they will eventually produce. Ordinary notes
+still receive YAML validation; template commands in the note body alone do not
+turn validation off. Removing all commands from the frontmatter and its setup
+restores normal validation on subsequent saves.
+
+Edits preserve setup code, template whitespace, delimiters, and body text. Template
+recognition does not require Templater to be installed. The existing **Style YAML
+in source mode** setting also controls template source styling.
+
 ## Customizing the colors
 
 Themes and CSS snippets can override the plugin's public variables. For example:
@@ -118,6 +135,9 @@ npm run dev
 ```
 
 Run `npm run build` for a production build and `npm test` for regression checks.
+After installing in Obsidian, run `tests/visibility.obsidian.js` through the
+Obsidian CLI `eval` command for native CSS visibility checks. This check uses
+isolated DOM fixtures without creating notes or changing settings.
 
 Settings are grouped into **Display**, **Layout**, and **Colors**. The twelve palettes
 adapted from the shared theme catalog are: Semaphore, Aizome, ATAS Directional,

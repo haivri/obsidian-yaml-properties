@@ -11,7 +11,7 @@ function fixture({ content = '---\ntitle: Old\n---\nBody\n', filtered = false, d
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../main.js'), 'utf8'), {
     module, exports: module.exports,
     require: name => {
-      assert.equal(name, 'obsidian');
+      if (name !== 'obsidian') return require(name);
       return { Plugin: class {}, PluginSettingTab: class {}, parseYaml: yaml.load,
         Notice: class { constructor(message) { notices.push(message); } } };
     },
@@ -22,7 +22,7 @@ function fixture({ content = '---\ntitle: Old\n---\nBody\n', filtered = false, d
   const view = { file: { path: 'test.md' }, editor: {
     getValue: () => content,
     offsetToPos: offset => offset,
-    replaceRange: (replacement, from, end) => { calls.push('replace'); if (!filtered) content = replacement + content.slice(end); },
+    replaceRange: (replacement, from, end) => { calls.push('replace'); if (!filtered) content = content.slice(0, from) + replacement + content.slice(end); },
   }, save: async () => { calls.push('save'); } };
   plugin.app = { vault: {
     cachedRead: async () => disk,
@@ -103,4 +103,87 @@ test('outside pointer commits while a pointer inside the YAML editor does not', 
   assert.equal(commits, 0);
   f.plugin.commitEditorOnOutsidePointer(f.view, { target: { closest: () => null } });
   assert.equal(commits, 1);
+});
+
+const script = 'date: <%*\nconst date = "2026-09-12";\ntR += date;\n%>\ntags:\n  - daily';
+const setup = '<%*\nconst started = "14:30";\n-%>\n';
+
+test('multiline and unfinished template commands save without YAML or JavaScript validation', async () => {
+  for (const raw of [script, 'date: <%*\nunfinished code', 'date: <%+ tp.date.now("YYYY-MM-DD") -%>', '<%* if (condition) { %>\na: 1\n<%* } else { %>\na: 2\n<%* } %>']) {
+    const f = fixture();
+    assert.equal(await f.plugin.saveYamlFromEditor(f.view, raw), true);
+    assert.equal(f.content(), `---\n${raw}\n---\nBody\n`);
+    assert.deepEqual(f.notices, []);
+  }
+});
+
+test('setup, template whitespace, delimiters and CRLF body survive direct and fallback writes', async () => {
+  for (const filtered of [false, true]) {
+    const prefix = setup.replaceAll('\n', '\r\n');
+    const content = `${prefix}---  \r\n${script.replaceAll('\n', '\r\n')}\r\n...\r\nBody\r\n---\r\nTail`;
+    const f = fixture({ content, filtered });
+    const raw = script + '\n\n  ';
+    assert.equal(await f.plugin.saveYamlFromEditor(f.view, raw), true);
+    const expected = `${prefix}---  \r\n${raw.replaceAll('\n', '\r\n')}\r\n...\r\nBody\r\n---\r\nTail`;
+    assert.equal(filtered ? f.disk() : f.content(), expected);
+  }
+});
+
+test('fallback preserves the latest setup and body rather than stale editor copies', async () => {
+  const content = `${setup}---\n${script}\n---\nOld body`;
+  const latestSetup = setup.replace('14:30', '15:45');
+  const f = fixture({ content, filtered: true, disk: `${latestSetup}---\n${script}\n---\nNew body` });
+  assert.equal(await f.plugin.saveYamlFromEditor(f.view, script + '\nextra: true'), true);
+  assert.equal(f.disk(), `${latestSetup}---\n${script}\nextra: true\n---\nNew body`);
+});
+
+test('template detection is confined to frontmatter and setup, and validation resumes after removing commands', async () => {
+  const bodyOnly = fixture({ content: '---\ntitle: Old\n---\n<%* anything %>' });
+  assert.equal(await bodyOnly.plugin.saveYamlFromEditor(bodyOnly.view, 'broken: ['), false);
+  const f = fixture({ content: `---\n${script}\n---\nBody` });
+  assert.equal(await f.plugin.saveYamlFromEditor(f.view, 'title: Plain'), true);
+  assert.equal(await f.plugin.saveYamlFromEditor(f.view, 'broken: ['), false);
+});
+
+test('emptying template frontmatter removes only its own block', async () => {
+  for (const filtered of [false, true]) {
+    const f = fixture({ content: `${setup}---\n${script}\n---\nBody`, filtered });
+    assert.equal(await f.plugin.saveYamlFromEditor(f.view, ''), true);
+    assert.equal(filtered ? f.disk() : f.content(), setup + 'Body');
+    const empty = fixture({ content: `${setup}---\n---\nBody`, filtered });
+    await empty.plugin.removeEmptyFrontmatterBlock(empty.view);
+    assert.equal(filtered ? empty.disk() : empty.content(), setup + 'Body');
+  }
+});
+
+test('template summaries never interpret script statements as properties', async () => {
+  const f = fixture({ content: `---\n${script}\n---\nBody` });
+  const info = await f.plugin.getFrontmatterInfo(f.view);
+  assert.equal(info.isTemplate, true);
+  assert.equal(info.propertyCount, 0);
+  assert.equal(info.summary, '');
+});
+
+test('blocked template writes retain their draft and report the save error', async () => {
+  const f = fixture({ filtered: true, rejected: true });
+  assert.equal(await f.plugin.saveYamlFromEditor(f.view, script), false);
+  assert.match(f.notices[0], /save failed/);
+  assert.equal(f.disk(), '---\ntitle: Old\n---\nBody\n');
+});
+
+test('ambiguous delimiters in unfinished commands retain the draft without changing the document', async () => {
+  for (const filtered of [false,true]) {
+    const f=fixture({filtered});
+    assert.equal(await f.plugin.saveYamlFromEditor(f.view, 'date: <%*\n---\nunfinished'),false);
+    assert.deepEqual(f.calls,[]);
+    assert.equal(f.content(),'---\ntitle: Old\n---\nBody\n');
+    assert.match(f.notices[0],/Cannot locate the end/);
+  }
+});
+
+test('complete commands containing delimiter lines are saved without truncation', async () => {
+  const f=fixture();
+  const raw='date: <%*\nconst example = `\n---\n`;\ntR += example;\n%>\n';
+  assert.equal(await f.plugin.saveYamlFromEditor(f.view,raw),true);
+  assert.equal(f.content(),`---\n${raw}\n---\nBody\n`);
 });

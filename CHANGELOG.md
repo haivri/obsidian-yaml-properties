@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.14 - 2026-09-12
+
+- Show the template Properties panel and its heading even when Obsidian marks the unexpanded YAML as invalid and caches zero properties. Suppress the native YAML error banner only for template panels; preserve ordinary YAML errors and the Reading-view visibility setting.
+
+## 1.0.13 - 2026-09-12
+
+- Recognize Templater frontmatter, including multiline commands and leading setup blocks, without interpreting scripts as YAML properties.
+- Use consistent template highlighting in Source mode and the YAML panel, with quiet delimiters and existing palette colors for surrounding YAML.
+- Allow free editing of template frontmatter while preserving setup code, whitespace, delimiters, and body content. Ordinary notes retain YAML validation.
+- Provide a template YAML panel when Obsidian has no native Properties container.
+
 ## 1.0.12 - 2026-09-10
 
 - Group the monochromatic Aizome, Murasaki, and Sumi palettes together after the other palettes, keeping Default first and Custom last.
