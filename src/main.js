@@ -216,6 +216,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     this.viewStates = new WeakMap();
     this.activeEditors = new Set();
     this.activeYamlTextareas = new Map();
+    this.yamlEditBaselines = new WeakMap();
     this.invalidYamlDrafts = new Map();
     this.lastFrontmatterByPath = new Map();
 
@@ -815,6 +816,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       textarea.addEventListener('keyup', stopEvent);
       textarea.addEventListener('keypress', stopEvent);
       textarea.value = frontmatterInfo.raw;
+      this.yamlEditBaselines.set(textarea, { block: frontmatterInfo.block });
       window.requestAnimationFrame(syncEditorSize);
       textarea.addEventListener('input', () => {
         this.renderYamlInto(preview, textarea.value);
@@ -953,6 +955,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
 
     return {
       raw,
+      block: content.slice(info.blockStart, info.contentStart),
       isTemplate: !!info.isTemplate,
       endLine: content.slice(0, info.to).split('\n').length - 1,
       propertyCount,
@@ -1310,8 +1313,17 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
     const currentContent = view.editor ? view.editor.getValue() : await this.app.vault.cachedRead(file);
     const info = this.parseFrontMatterInfo(currentContent);
     if (!info.exists) {
+      new obsidian.Notice('YAML Properties: frontmatter was removed. Your draft has not been saved; copy it before reopening the note.');
       return false;
     }
+    const textarea = this.activeYamlTextareas.get(file.path);
+    // Remember what the user actually saw, even if another writer updates the
+    // underlying editor while this textarea remains focused.
+    const currentBlock = currentContent.slice(info.blockStart, info.contentStart);
+    const baseline = this.yamlEditBaselines.get(textarea);
+    const expectedBlock = baseline?.block ?? currentBlock;
+    const awaitingReload = baseline?.pendingEditorBlock === currentBlock;
+    let savedBlock = currentBlock;
 
     const isTemplate = info.isTemplate || rawYaml.includes('<%');
     // The textarea represents content without the one newline before the closing delimiter.
@@ -1340,22 +1352,33 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       return false;
     }
 
-    if (normalizedYaml === this.editableFrontmatter(info, isTemplate)) {
+    if (!awaitingReload && normalizedYaml === this.editableFrontmatter(info, isTemplate)) {
+      if (textarea) this.yamlEditBaselines.set(textarea, { block: currentBlock });
       return true;
     }
 
     const writeViaVault = () => this.app.vault.process(file, (latestContent) => {
       const latestInfo = this.parseFrontMatterInfo(latestContent);
       if (!latestInfo.exists) {
-        return latestContent;
+        throw new Error('Frontmatter was removed while saving. Your draft is still here; copy it before reopening the note.');
       }
+      const latestBlock = latestContent.slice(latestInfo.blockStart, latestInfo.contentStart);
+      const nextBlock = this.frontmatterReplacement(latestContent, latestInfo, normalizedYaml, isTemplate);
+      // Compare inside the atomic vault transform, after view.save() and any
+      // competing writer. Repeated commits of the same draft are harmless.
+      if (latestBlock !== expectedBlock && latestBlock !== nextBlock) {
+        throw new Error('Properties changed elsewhere. Your draft has not been saved; copy it before reopening the note to review the newer properties.');
+      }
+      savedBlock = nextBlock;
       return latestContent.slice(0, latestInfo.blockStart)
-        + this.frontmatterReplacement(latestContent, latestInfo, normalizedYaml, isTemplate)
-        + latestContent.slice(latestInfo.contentStart);
+        + nextBlock + latestContent.slice(latestInfo.contentStart);
     });
 
     try {
-      if (view.editor) {
+      if (currentBlock !== expectedBlock && !awaitingReload) {
+        throw new Error('Properties changed elsewhere. Your draft has not been saved; copy it before reopening the note to review the newer properties.');
+      }
+      if (view.editor && !awaitingReload) {
         // Replace only the frontmatter block. Replacing the whole document
         // remaps the editor selection to the end of the inserted text — the
         // bottom of the note — and the editor scrolls it into view, yanking
@@ -1366,6 +1389,7 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
         // Pin the scroll position across the write: even a frontmatter-only
         // replace can make the editor scroll its cursor into view.
         this.withPinnedScroll(view, () => view.editor.replaceRange(replacement, view.editor.offsetToPos(info.blockStart), frontmatterEnd));
+        savedBlock = replacement;
 
         // Since Obsidian 1.12, live preview silently filters editor
         // transactions that delete or replace text in the properties region —
@@ -1392,6 +1416,16 @@ class YamlPropertiesPlugin extends obsidian.Plugin {
       return false;
     }
 
+    if (textarea) {
+      this.yamlEditBaselines.set(textarea, {
+        block: savedBlock,
+        // A fallback may finish before Obsidian reloads the editor. Until it
+        // catches up, save against the vault baseline without flushing the
+        // stale editor back to disk or mistaking our own save for a conflict.
+        pendingEditorBlock: view.editor && !this.editorFrontmatterEquals(view, normalizedYaml, isTemplate)
+          ? currentBlock : undefined
+      });
+    }
     this.scheduleRefresh(view);
     return true;
   }
