@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.16 - 2026-10-05
+
+- Preserve the YAML draft and newer properties when another writer changes frontmatter during editing.
+- Report a failed save and retain the draft if frontmatter disappears before the save completes.
+- Keep repeated saves safe while the underlying editor reloads a successful disk write.
+
 ## 1.0.14 - 2026-09-12
 
 - Show the template Properties panel and its heading even when Obsidian marks the unexpanded YAML as invalid and caches zero properties. Suppress the native YAML error banner only for template panels; preserve ordinary YAML errors and the Reading-view visibility setting.
