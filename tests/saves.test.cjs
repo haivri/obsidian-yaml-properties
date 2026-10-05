@@ -31,10 +31,11 @@ function fixture({ content = '---\ntitle: Old\n---\nBody\n', filtered = false, d
   plugin.invalidYamlDrafts = new Map();
   plugin.activeEditors = new Set();
   plugin.activeYamlTextareas = new Map();
+  plugin.yamlEditBaselines = new WeakMap();
   plugin.yamlSaveTimers = new Map();
   plugin.withPinnedScroll = (v, operation) => operation();
   plugin.scheduleRefresh = () => {};
-  return { plugin, view, calls, notices, content: () => content, disk: () => disk };
+  return { plugin, view, calls, notices, content: () => content, disk: () => disk, setContent: value => { content = value; }, setDisk: value => { disk = value; } };
 }
 
 test('normal editor save changes frontmatter only, preserving body bytes', async () => {
@@ -186,4 +187,122 @@ test('complete commands containing delimiter lines are saved without truncation'
   const raw='date: <%*\nconst example = `\n---\n`;\ntR += example;\n%>\n';
   assert.equal(await f.plugin.saveYamlFromEditor(f.view,raw),true);
   assert.equal(f.content(),`---\n${raw}\n---\nBody\n`);
+});
+
+function activateDraft(f, value) {
+  const textarea = { isConnected: true, value, dataset: {}, blur() {} };
+  const info = f.plugin.parseFrontMatterInfo(f.content());
+  f.plugin.activeEditors.add('test.md');
+  f.plugin.activeYamlTextareas.set('test.md', textarea);
+  f.plugin.yamlEditBaselines.set(textarea, { block: f.content().slice(info.blockStart, info.contentStart) });
+  return textarea;
+}
+
+test('concurrent frontmatter additions, edits and removals retain the draft and newer disk bytes', async () => {
+  for (const disk of [
+    '---\ntitle: Old\nexternal: keep-me\n---\nNewer body\n',
+    '---\ntitle: Elsewhere\n---\nNewer body\n',
+    'Newer body without frontmatter\n',
+  ]) {
+    const f = fixture({ filtered: true, disk });
+    const textarea = activateDraft(f, 'title: New');
+    assert.equal(await f.plugin.commitActiveYamlEditor(f.view), false);
+    assert.equal(f.disk(), disk);
+    assert.equal(f.plugin.activeEditors.has('test.md'), true);
+    assert.equal(f.plugin.activeYamlTextareas.get('test.md'), textarea);
+    assert.equal(textarea.value, 'title: New');
+    assert.match(f.notices[0], /removed|changed elsewhere/);
+  }
+});
+
+test('an external editor update is compared with the displayed draft baseline before replacing anything', async () => {
+  for (const filtered of [false, true]) {
+    const f = fixture({ filtered });
+    activateDraft(f, 'title: New');
+    const latest = '---\ntitle: Elsewhere\nexternal: keep-me\n---\nNewer body\n';
+    f.setContent(latest);
+    assert.equal(await f.plugin.commitActiveYamlEditor(f.view), false);
+    assert.equal(f.content(), latest);
+    assert.deepEqual(f.calls, []);
+    assert.equal(f.plugin.activeEditors.has('test.md'), true);
+    assert.match(f.notices[0], /changed elsewhere/);
+  }
+});
+
+test('clearing the draft does not delete properties changed by another writer', async () => {
+  const disk = '---\ntitle: Elsewhere\n---\nNewer body\n';
+  const f = fixture({ filtered: true, disk });
+  activateDraft(f, '');
+  assert.equal(await f.plugin.commitActiveYamlEditor(f.view), false);
+  assert.equal(f.disk(), disk);
+  assert.equal(f.plugin.activeEditors.has('test.md'), true);
+});
+
+test('successive own saves advance the baseline and duplicate fallback commits remain idempotent', async () => {
+  for (const filtered of [false, true]) {
+    const f = fixture({ filtered });
+    const textarea = activateDraft(f, 'title: First');
+    assert.equal(await f.plugin.saveYamlFromEditor(f.view, textarea.value), true);
+    if (filtered) f.setContent(f.disk()); // Obsidian reload after the vault write.
+    textarea.value = 'title: Second';
+    assert.equal(await f.plugin.saveYamlFromEditor(f.view, textarea.value), true);
+    assert.match(filtered ? f.disk() : f.content(), /title: Second/);
+    assert.equal(await f.plugin.saveYamlFromEditor(f.view, textarea.value), true);
+    assert.deepEqual(f.notices, []);
+  }
+});
+
+test('frontmatter removed from the editor retains the active draft with a notice', async () => {
+  const f = fixture();
+  activateDraft(f, 'title: New');
+  f.setContent('Body without frontmatter');
+  assert.equal(await f.plugin.commitActiveYamlEditor(f.view), false);
+  assert.equal(f.plugin.activeEditors.has('test.md'), true);
+  assert.deepEqual(f.calls, []);
+  assert.match(f.notices[0], /removed/);
+});
+
+test('a change arriving during view.save is checked inside the vault transform', async () => {
+  const f = fixture({ filtered: true });
+  activateDraft(f, 'title: New');
+  const latest = '---\ntitle: External\n---\nNewer body';
+  f.view.save = async () => { f.setDisk(latest); };
+  assert.equal(await f.plugin.commitActiveYamlEditor(f.view), false);
+  assert.equal(f.disk(), latest);
+  assert.equal(f.plugin.activeEditors.has('test.md'), true);
+});
+
+test('an editor awaiting reload can save another draft or revert to the original value without flushing stale content', async () => {
+  const f = fixture({ filtered: true });
+  const textarea = activateDraft(f, 'title: First');
+  assert.equal(await f.plugin.saveYamlFromEditor(f.view, textarea.value), true);
+  textarea.value = 'title: Second';
+  assert.equal(await f.plugin.saveYamlFromEditor(f.view, textarea.value), true);
+  assert.match(f.disk(), /title: Second/);
+  textarea.value = 'title: Old';
+  assert.equal(await f.plugin.saveYamlFromEditor(f.view, textarea.value), true);
+  assert.match(f.disk(), /title: Old/);
+  assert.deepEqual(f.calls, ['replace', 'save', 'process', 'process', 'process']);
+});
+
+test('an editor awaiting reload still rejects subsequent external vault changes', async () => {
+  const f = fixture({ filtered: true });
+  const textarea = activateDraft(f, 'title: First');
+  assert.equal(await f.plugin.saveYamlFromEditor(f.view, textarea.value), true);
+  const latest = '---\ntitle: External\n---\nNewer body';
+  f.setDisk(latest);
+  textarea.value = 'title: Second';
+  assert.equal(await f.plugin.commitActiveYamlEditor(f.view), false);
+  assert.equal(f.disk(), latest);
+  assert.equal(f.plugin.activeEditors.has('test.md'), true);
+});
+
+test('template frontmatter races preserve setup, comments, CRLF body and the active draft', async () => {
+  const content = `${setup}---\r\n${script.replaceAll('\n', '\r\n')}\r\n---\r\nBody\r\n`;
+  const disk = content.replace('tags:', '# external comment\r\ntags:');
+  const f = fixture({ content, disk, filtered: true });
+  activateDraft(f, script + '\nextra: true');
+  assert.equal(await f.plugin.commitActiveYamlEditor(f.view), false);
+  assert.equal(f.disk(), disk);
+  assert.equal(f.plugin.activeEditors.has('test.md'), true);
 });
